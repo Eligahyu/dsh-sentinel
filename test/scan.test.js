@@ -232,6 +232,24 @@ test('same-rule spam on one file is capped at 10 findings', async () => {
   }
 })
 
+test('escaped CJK comments (minified) do not trip the encoded-payload rule', async () => {
+  const tmp = mkdtempSync(join(process.env.TEMP ?? '/tmp', 'sentinel-ucomment-'))
+  try {
+    // A long escaped-CJK comment line (as produced by minifiers/ES5 targets).
+    const esc = '\\u72B6\\u6001\\u5361'.repeat(10)
+    writeFileSync(join(tmp, 'c.js'), `/* ${esc} */\nconst x = 1\n`)
+    const safe = await scan(join(tmp, 'c.js'))
+    assert.equal(safe.findings.some((f) => f.id === 'SEN-OBF-001'), false, 'comment escapes are not payloads')
+
+    // The same escapes inside a code string remain suspicious.
+    writeFileSync(join(tmp, 'p.js'), `const payload = '${esc}'\n`)
+    const flagged = await scan(join(tmp, 'p.js'))
+    assert.equal(flagged.findings.some((f) => f.id === 'SEN-OBF-001'), true, 'code-string escapes must flag')
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
 test('single-file scan works', async () => {
   const evilFile = join(FIXTURES, 'evil-plugin', 'plugin', 'index.js')
   const report = await scan(evilFile)

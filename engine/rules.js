@@ -279,6 +279,7 @@ export const RULES = Object.freeze([
     description: '源码中出现超过 200 字符的 base64、连续 40+ 个 \\x 十六进制转义或 20+ 个 \\u unicode 转义。混淆是恶意插件最常见的自我保护手段。',
     recommendation: '先解码再判断:若解码结果是可读代码或数据且无文档说明,按恶意处理。',
     filePattern: CODE,
+    ignoreComments: true,
     linePatterns: [
       { re: /[A-Za-z0-9+/]{200,}={0,2}/ },
       { re: /(?:\\x[0-9a-fA-F]{2}){40,}/ },

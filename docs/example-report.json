@@ -3,7 +3,7 @@
   "evilFixtureReport": {
     "tool": "dsh-sentinel",
     "version": "0.1.0",
-    "scannedAt": "2026-08-17T15:37:51.175Z",
+    "scannedAt": "2026-08-17T15:42:50.725Z",
     "target": {
       "kind": "path",
       "path": "C:\\Users\\Administrator\\Desktop\\code\\dsh-sentinel\\test\\fixtures\\evil-plugin",
@@ -37,7 +37,7 @@
         "source": 20,
         "test": 0
       },
-      "scanMs": 4
+      "scanMs": 5
     },
     "manifest": {
       "ok": true,
@@ -192,8 +192,8 @@
         "category": "obfuscation",
         "message": "代码中存在大段编码载荷(base64 / 十六进制 / unicode 转义)",
         "file": "plugin\\index.js",
-        "line": 30,
-        "snippet": "// SGVsbG8gdGhpcyBpcyBhIGxvbmcgZW5jb2RlZCBwYXlsb2FkIHRoYXQgbXVzdCBiZSBmbGFnZ2VkIGJ5IHRoZSBzY2FubmVyIGFuZCB0aGlzIHN0cmluZyBpcyBsb25nIGVub3VnaCB0byB0cmlwIHRoZSBiYXNlNjQgZGV0ZWN0aW9uIHJ1bGUgYmVjYXVzZSBpdCBjb250YWlucyBtb3JlIHRoYW4gdHdvIGh1bmRy…",
+        "line": 31,
+        "snippet": "const blob = 'SGVsbG8gdGhpcyBpcyBhIGxvbmcgZW5jb2RlZCBwYXlsb2FkIHRoYXQgbXVzdCBiZSBmbGFnZ2VkIGJ5IHRoZSBzY2FubmVyIGFuZCB0aGlzIHN0cmluZyBpcyBsb25nIGVub3VnaCB0byB0cmlwIHRoZSBiYXNlNjQgZGV0ZWN0aW9uIHJ1bGUgYmVjYXVzZSBpdCBjb250YWlucyBtb3JlIHRoYW4gd…",
         "recommendation": "先解码再判断:若解码结果是可读代码或数据且无文档说明,按恶意处理。",
         "package": "",
         "testFile": false
@@ -204,8 +204,8 @@
         "category": "obfuscation",
         "message": "代码中存在大段编码载荷(base64 / 十六进制 / unicode 转义)",
         "file": "plugin\\index.js",
-        "line": 31,
-        "snippet": "// aXQgd2l0aCBhIGhpZ2ggc2V2ZXJpdHkgZmluZGluZyBpbiB0aGUgcmVwb3J0IGFuZCB0aGlzIHNlY29uZCBsaW5lIGlzIGp1c3QgYXMgbG9uZyBhcyB0aGUgZmlyc3Qgb25lIHNvIHRoYXQgdGhlIGV4dGVuZGVkIHBheWxvYWQgZGV0ZWN0aW9uIHJ1bGUgZmluZHMgYXQgbGVhc3Qgb25lIG1hdGNoIGluIHRoZSBm…",
+        "line": 32,
+        "snippet": "const blob2 = 'aXQgd2l0aCBhIGhpZ2ggc2V2ZXJpdHkgZmluZGluZyBpbiB0aGUgcmVwb3J0IGFuZCB0aGlzIHNlY29uZCBsaW5lIGlzIGp1c3QgYXMgbG9uZyBhcyB0aGUgZmlyc3Qgb25lIHNvIHRoYXQgdGhlIGV4dGVuZGVkIHBheWxvYWQgZGV0ZWN0aW9uIHJ1bGUgZmluZHMgYXQgbGVhc3Qgb25lIG1hdGNo…",
         "recommendation": "先解码再判断:若解码结果是可读代码或数据且无文档说明,按恶意处理。",
         "package": "",
         "testFile": false
@@ -304,7 +304,7 @@
       "largestFiles": [
         {
           "file": "plugin\\index.js",
-          "bytes": 1768
+          "bytes": 1869
         },
         {
           "file": "package.json",
