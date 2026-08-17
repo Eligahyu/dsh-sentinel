@@ -16,7 +16,7 @@
     "./package.json": "./package.json"
   },
   "bin": {
-    "dsh-sentinel": "./bin/sentinel.mjs"
+    "dsh-sentinel": "bin/sentinel.mjs"
   },
   "files": [
     "engine",
