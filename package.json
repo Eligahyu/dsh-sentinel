@@ -1,0 +1,64 @@
+{
+  "name": "dsh-sentinel",
+  "version": "0.1.0",
+  "description": "🛡️ 给 DeepSeek Harness 插件拍 X 光 —— DSH 插件安全体检与健康检查。静态启发式审计:代码执行、凭据访问、外传端点、混淆、安装脚本、bundle 清单合规,输出 0-100 风险分与裁决。Plugin security & health scanner for DeepSeek Harness: heuristic static audit (code execution, credential access, exfiltration, obfuscation, install scripts, bundle manifest compliance) with a 0-100 risk score and verdict. Works as a DSH tool plugin and as a standalone zero-dependency CLI.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.17"
+  },
+  "main": "engine/index.js",
+  "exports": {
+    ".": "./engine/index.js",
+    "./plugin": "./plugin/index.js",
+    "./engine/*": "./engine/*.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "dsh-sentinel": "./bin/sentinel.mjs"
+  },
+  "files": [
+    "engine",
+    "plugin",
+    "bin",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "*",
+    "@deepseek-ai/dsh-tools": "*"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-tools": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "test": "node --test test/scan.test.js test/plugin-load.test.js",
+    "docs:rules": "node scripts/generate-rules-doc.mjs",
+    "demo": "node scripts/demo.mjs",
+    "scan:self": "node bin/sentinel.mjs ."
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "security",
+    "scanner",
+    "audit",
+    "supply-chain",
+    "static-analysis",
+    "plugin",
+    "cordis"
+  ]
+}

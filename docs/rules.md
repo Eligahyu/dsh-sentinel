@@ -1,0 +1,41 @@
+# 规则目录 / Rule Catalog
+
+共 31 条启发式规则。启发式 ≠ 判决:命中只表示"需要人工复核",不代表插件一定恶意。
+
+| ID | 严重度(权重) | 类别 | 规则 | 说明 |
+| --- | --- | --- | --- | --- |
+| `SEN-EXEC-001` | 🔴 critical(45 分) | execution | **remote-code-download** | 发现从网络获取内容后直接交给执行器(exec/spawn/eval/Function/shell)的模式。这是供应链攻击最典型的形状。 |
+| `SEN-EXEC-002` | 🟡 medium(8 分) | execution | **shell-execution** | 插件调用系统命令。部分 DSH 插件(终端、构建类)确有正当需求,但这是插件越权的最高频入口,必须逐处审查。 |
+| `SEN-EXEC-003` | 🟠 high(20 分) | execution | **dynamic-code-eval** | eval、new Function、vm.runIn*、Module._compile、process.binding 等动态执行机制。配合网络或解码即高危。 |
+| `SEN-EXEC-004` | 🟠 high(20 分) | execution | **eval-of-decoded** | 先 base64/URI 解码再执行,是绕过静态检测的经典混淆手段。 |
+| `SEN-CRED-001` | 🔴 critical(45 分) | credentials | **credential-file-read** | 代码读取 ~/.ssh、~/.aws/credentials、.npmrc、.netrc、kubeconfig、docker config、.git-credentials 等敏感文件。 |
+| `SEN-CRED-002` | 🟠 high(20 分) | credentials | **env-credential-access** | 代码访问 process.env 中名称含 API_KEY/TOKEN/SECRET/PASSWORD 或知名厂商前缀(DeepSeek/OpenAI/Anthropic/GitHub/AWS)的变量。 |
+| `SEN-CRED-003` | 🟠 high(20 分) | credentials | **hardcoded-secret** | 代码中出现形似真实 API key / token 的字符串(sk-…、AKIA…、ghp_…、JWT 等)。 |
+| `SEN-CRED-004` | 🟡 medium(8 分) | credentials | **dotenv-loading** | 插件读取 .env 或环境文件。本机开发场景常见,但需确认 .env 内容不会离开本机。 |
+| `SEN-CRED-005` | 🟡 medium(8 分) | credentials | **credential-file-write** | 代码向 .ssh/.aws/.npmrc 等敏感路径写入内容(注入密钥或篡改配置)。 |
+| `SEN-EXFIL-001` | 🔴 critical(45 分) | exfiltration | **suspicious-endpoint** | 代码向已知的"接收任意数据"类服务发起请求:webhook.site、requestbin、pastebin、Discord webhook、Telegram bot、ngrok/serveo 隧道、oast/interactsh 等。 |
+| `SEN-EXFIL-002` | 🟠 high(20 分) | exfiltration | **network-with-secrets** | 网络请求的参数/头/体中拼接了 process.env 或密钥变量,存在把凭据外传的风险。 |
+| `SEN-EXFIL-003` | 🟡 medium(8 分) | exfiltration | **encoded-env-in-network** | 请求前对 env/密钥做 base64 或编码处理,通常用于规避 URL 字符限制或检测。 |
+| `SEN-OBF-001` | 🟠 high(20 分) | obfuscation | **encoded-payload** | 源码中出现超过 200 字符的 base64、连续 40+ 个 \x 十六进制转义或 20+ 个 \u unicode 转义。混淆是恶意插件最常见的自我保护手段。 |
+| `SEN-OBF-002` | 🟡 medium(8 分) | obfuscation | **minified-single-line** | 单个代码行超过 30KB。合法插件也可能打包产物,但超长单行是隐藏恶意逻辑的常用手法,需人工解压审阅。 |
+| `SEN-OBF-003` | 🟢 low(3 分) | obfuscation | **decode-then-exec** | decodeURIComponent/unescape/fromCharCode 与 eval/Function 出现在同一文件。 |
+| `SEN-INST-001` | 🟠 high(20 分) | install | **install-script-present** | npm 安装时会自动执行这些脚本,且运行在用户完整权限下、不在任何沙箱之内——这是供应链攻击的经典投放点。 |
+| `SEN-INST-002` | 🔴 critical(45 分) | install | **install-script-network** | 安装脚本中包含 curl/wget/网络地址/base64/chmod 等,典型形状是 curl … | bash。 |
+| `SEN-FS-001` | 🔴 critical(45 分) | filesystem | **destructive-command** | 删除命令的目标是 ~、/、C:、/home、/root、/etc 等关键路径。 |
+| `SEN-FS-002` | 🟡 medium(8 分) | filesystem | **write-outside-workspace** | 代码向 /etc、C:、用户主目录等绝对路径写入文件。 |
+| `SEN-FS-003` | 🟡 medium(8 分) | filesystem | **permission-mutation** | 代码修改文件权限或以更高权限执行。 |
+| `SEN-FS-004` | 🟢 low(3 分) | filesystem | **tempfile-in-exec** | shell 命令写入 /tmp 或 %TEMP%——配合下载执行是常见攻击链。 |
+| `SEN-NET-001` | 🟡 medium(8 分) | network | **network-call** | 插件存在出网能力。本身不一定是恶意(搜索、API 客户端等),但必须逐处确认请求目标与携带数据。 |
+| `SEN-NET-002` | 🟢 low(3 分) | network | **hardcoded-ip** | 源码中直接出现公网 IPv4 字面量(排除 127.x / 10.x / 192.168.x / 172.16-31.x / 0.x / 255.x)。 |
+| `SEN-MAN-001` | 🟡 medium(8 分) | manifest | **missing-package-manifest** | 扫描目标不是 npm 包结构,无法作为 DSH bundle 安装。 |
+| `SEN-MAN-002` | 🟠 high(20 分) | manifest | **not-a-dsh-bundle** | package.json 中没有 dsh.bundle,`dsh plugin add` 不会激活其任何层。 |
+| `SEN-MAN-003` | 🟠 high(20 分) | manifest | **patch-file-missing** | dsh.bundle.patch 指向的文件在包内缺失,安装后插件层不会生效(或安装失败)。 |
+| `SEN-MAN-004` | 🟡 medium(8 分) | manifest | **patch-row-invalid** | cordis.patch.yml 的行解析失败,loader 可能拒绝该层。 |
+| `SEN-MAN-005` | 🟡 medium(8 分) | manifest | **patch-entry-unresolvable** | patch 行 name 指向的子路径在包内不存在(或未在 exports 中声明)。 |
+| `SEN-MAN-006` | 🟠 high(20 分) | manifest | **plugin-entry-invalid** | 入口模块未导出 Cordis 插件协议要求的 name/apply,加载会失败或静默无行为。 |
+| `SEN-MAN-007` | 🟢 low(3 分) | hygiene | **license-missing** | package.json 未声明 license,安装与再分发存在法律风险。 |
+| `SEN-MAN-008` | 🟢 low(3 分) | hygiene | **description-missing** | package.json 未声明 description。 |
+
+权重:critical=50 · high=20 · medium=8 · low=3 · info=0,总分封顶 100。
+
+裁决:0-19 ✅ safe · 20-49 👀 review · 50-79 ⚠️ risky · 80-100 🚨 dangerous

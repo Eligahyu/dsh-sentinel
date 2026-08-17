@@ -1,0 +1,17 @@
+{
+  "name": "clean-plugin",
+  "version": "0.1.0",
+  "description": "A minimal, well-behaved DSH plugin used as a scanner test fixture.",
+  "type": "module",
+  "license": "MIT",
+  "main": "plugin/index.js",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "*",
+    "@deepseek-ai/dsh-tools": "*"
+  }
+}

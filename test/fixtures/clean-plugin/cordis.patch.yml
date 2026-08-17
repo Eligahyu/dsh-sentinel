@@ -1,0 +1,3 @@
+- insert:
+    - id: clean-plugin
+      name: 'clean-plugin/plugin'

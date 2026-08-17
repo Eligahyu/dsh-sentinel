@@ -1,0 +1,3 @@
+- insert:
+    - id: evil-plugin
+      name: 'evil-plugin/plugin'

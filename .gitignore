@@ -1,0 +1,17 @@
+# Dependencies & build artifacts
+node_modules/
+dist/
+lib/
+*.tgz
+*.tsbuildinfo
+
+# Local scratch
+scratch/
+.tmp/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
