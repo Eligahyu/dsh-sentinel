@@ -15,8 +15,8 @@
 - [ ] [dsh-find-plugins](https://github.com/Nagi-ovo/dsh-find-plugins)(Skill)会被 Agent 搜索到,topic 打对即可
 
 ### 3. npm 发布(消除 git 安装的构建授权门槛)
-- [ ] `npm publish`(仓库已配好 `files`:`engine`/`plugin`/`bin`/`cordis.patch.yml`)
-- [ ] 发布后安装变成 `dsh plugin add dsh-sentinel`——一键,无 `allowBuilds` 授权
+- [ ] `npm publish`(仓库已配好 `files`:`engine`/`plugin`/`bin`/`cordis.patch.yml`;npm 包名 **`deepseek-harness-sentinel`**,`dsh-sentinel` 已被占用)
+- [ ] 发布后安装变成 `dsh plugin add deepseek-harness-sentinel`——一键,无 `allowBuilds` 授权
 
 ### 4. 中文社区传播(生态爆款路径)
 - [ ] 掘金/知乎/公众号各一篇:《DeepSeek Harness 插件生态 4798 个插件,谁来给它们体检?》

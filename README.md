@@ -49,8 +49,12 @@ DeepSeek Harness 插件生态在爆发:截至 2026-08,仅 [awesome-dsh-plugin](h
 # 本地目录安装
 dsh plugin --profile web add ./dsh-sentinel
 
-# 或从 GitHub 安装(npm 发布后可直接 dsh plugin add dsh-sentinel)
-dsh plugin --profile web add github:<你的用户名>/dsh-sentinel
+# 或从 GitHub 安装
+dsh plugin --profile web add github:Eligahyu/dsh-sentinel
+
+# npm 发布后(推荐,无需构建授权;npm 包名 deepseek-harness-sentinel,
+# 因为 "dsh-sentinel" 在 npm 上已被占用):
+dsh plugin --profile web add deepseek-harness-sentinel
 
 dsh --profile web
 ```

@@ -1,14 +1,14 @@
-# dsh-sentinel bundle patch — registers the plugin-security audit tools.
+# deepseek-harness-sentinel bundle patch — registers the plugin-security audit tools.
 #
 # Install into a profile:
-#   dsh plugin --profile web add dsh-sentinel
-# or from git:
-#   dsh plugin --profile web add github:<you>/dsh-sentinel
+#   dsh plugin --profile web add deepseek-harness-sentinel       # npm 包名
+#   dsh plugin --profile web add ./dsh-sentinel                  # 本地 checkout
+#   dsh plugin --profile web add github:Eligahyu/dsh-sentinel    # git
 #
-# The plugin module resolves as `dsh-sentinel/plugin` from the profile's
-# node_modules (peer deps fall through to the launcher-maintained
+# The plugin module resolves as `deepseek-harness-sentinel/plugin` from the
+# profile's node_modules (peer deps fall through to the launcher-maintained
 # $DSH_HOME/profiles/node_modules flat fallback, so @deepseek-ai/cordis and
 # @deepseek-ai/dsh-tools resolve from the installation itself).
 - insert:
     - id: sentinel
-      name: 'dsh-sentinel/plugin'
+      name: 'deepseek-harness-sentinel/plugin'

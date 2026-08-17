@@ -1,0 +1,28 @@
+name: test
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22, 24]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      # 零第三方依赖,直接跑 Node 内置测试运行器,无需 npm install。
+      - name: Run tests
+        run: node --test test/scan.test.js test/plugin-load.test.js
