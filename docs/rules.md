@@ -19,11 +19,11 @@
 | `SEN-OBF-001` | 🟠 high(20 分) | obfuscation | **encoded-payload** | 源码中出现超过 200 字符的 base64、连续 40+ 个 \x 十六进制转义或 20+ 个 \u unicode 转义。混淆是恶意插件最常见的自我保护手段。 |
 | `SEN-OBF-002` | 🟡 medium(8 分) | obfuscation | **minified-single-line** | 单个代码行超过 30KB。合法插件也可能打包产物,但超长单行是隐藏恶意逻辑的常用手法,需人工解压审阅。 |
 | `SEN-OBF-003` | 🟢 low(3 分) | obfuscation | **decode-then-exec** | decodeURIComponent/unescape/fromCharCode 与 eval/Function 出现在同一文件。 |
-| `SEN-INST-001` | 🟠 high(20 分) | install | **install-script-present** | npm 安装时会自动执行这些脚本,且运行在用户完整权限下、不在任何沙箱之内——这是供应链攻击的经典投放点。 |
+| `SEN-INST-001` | 🟡 medium(8 分) | install | **install-script-present** | npm 安装时会自动执行这些脚本,运行在用户完整权限下、不在任何沙箱之内。注:DSH 官方对 git 安装的 TS bundle 也要求 prepare 构建脚本,因此仅"存在"本身不是恶意——需要人工确认脚本内容。 |
 | `SEN-INST-002` | 🔴 critical(45 分) | install | **install-script-network** | 安装脚本中包含 curl/wget/网络地址/base64/chmod 等,典型形状是 curl … | bash。 |
 | `SEN-FS-001` | 🔴 critical(45 分) | filesystem | **destructive-command** | 删除命令的目标是 ~、/、C:、/home、/root、/etc 等关键路径。 |
 | `SEN-FS-002` | 🟡 medium(8 分) | filesystem | **write-outside-workspace** | 代码向 /etc、C:、用户主目录等绝对路径写入文件。 |
-| `SEN-FS-003` | 🟡 medium(8 分) | filesystem | **permission-mutation** | 代码修改文件权限或以更高权限执行。 |
+| `SEN-FS-003` | 🟡 medium(8 分) | filesystem | **permission-mutation** | 代码把文件设为宽松权限(777 / a+rwx / 递归 -R 置宽)或提权执行。严格权限(0o600/0o700/0o644/0o755 等)是良好实践,不在此列。 |
 | `SEN-FS-004` | 🟢 low(3 分) | filesystem | **tempfile-in-exec** | shell 命令写入 /tmp 或 %TEMP%——配合下载执行是常见攻击链。 |
 | `SEN-NET-001` | 🟡 medium(8 分) | network | **network-call** | 插件存在出网能力。本身不一定是恶意(搜索、API 客户端等),但必须逐处确认请求目标与携带数据。 |
 | `SEN-NET-002` | 🟢 low(3 分) | network | **hardcoded-ip** | 源码中直接出现公网 IPv4 字面量(排除 127.x / 10.x / 192.168.x / 172.16-31.x / 0.x / 255.x)。 |

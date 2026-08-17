@@ -121,6 +121,7 @@ export function applyRule(rule, relPath, content) {
   if (rule.filePattern && !rule.filePattern.test(relPath)) return []
 
   const findings = []
+  const isCommentLine = (lineText) => /^\s*(\/\/|\*|\/\*)/.test(lineText)
   const push = (line, note) => {
     if (findings.some((f) => f.line === line)) return
     const lines = content.split('\n')
@@ -128,6 +129,9 @@ export function applyRule(rule, relPath, content) {
     // Rule-level exclusions: known-safe idioms on the same line (e.g. the
     // `new Function("")` globalThis-detection idiom) suppress the finding.
     if (rule.excludes?.some((re) => re.test(lineText))) return
+    // Comment lines carry prose/JSDoc, not executable code — exec-family rules
+    // skip them to avoid "spawn()" mentioned in a comment being flagged.
+    if (rule.ignoreComments && isCommentLine(lineText)) return
     findings.push({
       ruleId: rule.id,
       severity: rule.severity,
@@ -148,7 +152,8 @@ export function applyRule(rule, relPath, content) {
       guard += 1
       push(lineOf(content, m.index), p.note)
       if (m.index === re.lastIndex) re.lastIndex += 1
-      if (findings.length >= 20) break
+      // Same-rule spam on one file adds no information; cap per file.
+      if (findings.length >= 10) break
     }
   }
 
@@ -216,10 +221,27 @@ export function resolvePatchEntry(packageRoot, name, packageName = '') {
     rel = name
   }
   const candidates = []
-  if (rel === '') {
-    // Package root: honor the declared `main` first, then index conventions.
-    const pkgText = readMaybe(join(packageRoot, 'package.json'))
-    if (pkgText !== null) {
+  // Prefer the exports map (Node's modern resolution) when present.
+  const pkgText = readMaybe(join(packageRoot, 'package.json'))
+  if (pkgText !== null) {
+    let exportsMap = null
+    try {
+      exportsMap = JSON.parse(pkgText).exports
+    } catch {
+      exportsMap = null
+    }
+    if (exportsMap !== null && typeof exportsMap === 'object') {
+      const key = rel === '' ? '.' : `./${rel.replace(/\\/g, '/')}`
+      let target = exportsMap[key]
+      if (target !== null && typeof target === 'object' && !Array.isArray(target)) {
+        target = target.default
+      }
+      if (typeof target === 'string' && target.startsWith('./')) {
+        candidates.push(join(packageRoot, ...target.slice(2).split('/')))
+      }
+    }
+    if (rel === '') {
+      // Package root: honor the declared `main` first, then index conventions.
       try {
         const main = JSON.parse(pkgText).main
         if (typeof main === 'string' && main.length > 0) {
@@ -229,6 +251,8 @@ export function resolvePatchEntry(packageRoot, name, packageName = '') {
         // unparseable manifest — fall through to index conventions
       }
     }
+  }
+  if (rel === '') {
     candidates.push(join(packageRoot, 'index.js'), join(packageRoot, 'index.mjs'))
   } else {
     const parts = rel.replace(/\\/g, '/').split('/')
@@ -301,5 +325,7 @@ export function hasExportContract(absPath) {
     // name: '...' plus either apply: fn or the apply(ctx) method shorthand.
     return /\bname\s*:/.test(body) && /\bapply\s*[:(]/.test(body)
   }
-  return /module\.exports\s*=/.test(content)
+  // CommonJS compiled bundles: `module.exports = {...}` / `exports.default = {...}`.
+  if (/module\.exports\s*=|exports\.default\s*=/.test(content)) return true
+  return false
 }

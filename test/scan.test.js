@@ -139,6 +139,99 @@ test('default-export object plugin ({ name, apply }) passes the entry contract',
   }
 })
 
+test('exports-map resolution: no main, entry via exports["."]', async () => {
+  const tmp = mkdtempSync(join(process.env.TEMP ?? '/tmp', 'sentinel-exports-entry-'))
+  try {
+    mkdirSync(join(tmp, 'dsh'), { recursive: true })
+    writeFileSync(join(tmp, 'package.json'), JSON.stringify({
+      name: '@scope/pkgexp', version: '0.0.1',
+      exports: { '.': { default: './dsh/index.js' } },
+      dsh: { bundle: { patch: './cordis.patch.yml' } },
+    }))
+    writeFileSync(join(tmp, 'cordis.patch.yml'),
+      "- insert:\n    - id: e\n      name: '@scope/pkgexp'\n")
+    writeFileSync(join(tmp, 'dsh', 'index.js'),
+      "export const name = 'pkgexp'\nexport function apply() {}\n")
+    const report = await scan(tmp)
+    assert.ok(!ids(report).has('SEN-MAN-005'), 'must resolve via exports map')
+    assert.ok(!ids(report).has('SEN-MAN-006'))
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
+test('CommonJS compiled bundles (module.exports / exports.default) pass the entry contract', async () => {
+  const tmp = mkdtempSync(join(process.env.TEMP ?? '/tmp', 'sentinel-cjs-entry-'))
+  try {
+    for (const [entry, body] of [
+      ['mod.js', "module.exports = { name: 'x', apply() {} }\n"],
+      ['def.js', "exports.default = { name: 'y', apply() {} }\n"],
+    ]) {
+      writeFileSync(join(tmp, entry), body)
+      const report = await scan(join(tmp, entry))
+      assert.equal(report.findings.some((f) => f.id === 'SEN-MAN-006'), false, `${entry} contract`)
+    }
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
+test('chmod: restrictive modes pass, permissive modes flag', async () => {
+  const tmp = mkdtempSync(join(process.env.TEMP ?? '/tmp', 'sentinel-chmod-'))
+  try {
+    writeFileSync(join(tmp, 'a.js'), "await chmod(target, 0o700)\nawait chmod(target, 0o600)\n")
+    const safe = await scan(join(tmp, 'a.js'))
+    assert.equal(safe.findings.some((f) => f.id === 'SEN-FS-003'), false, 'restrictive chmod is good practice')
+
+    writeFileSync(join(tmp, 'b.js'), "await chmod(target, 0o777)\n")
+    const bad = await scan(join(tmp, 'b.js'))
+    assert.equal(bad.findings.some((f) => f.id === 'SEN-FS-003'), true, 'permissive chmod must flag')
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
+test('comment lines are ignored by exec-family rules', async () => {
+  const tmp = mkdtempSync(join(process.env.TEMP ?? '/tmp', 'sentinel-comments-'))
+  try {
+    writeFileSync(join(tmp, 'c.js'),
+      "// spawn('rm -rf /') is mentioned in prose\n/* execSync and eval are documented here */\nconst x = 1\n")
+    const report = await scan(join(tmp, 'c.js'))
+    assert.equal(report.findings.length, 0, 'comment-only mentions must not flag')
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
+test('install-script-present is medium for plain build scripts', async () => {
+  const tmp = mkdtempSync(join(process.env.TEMP ?? '/tmp', 'sentinel-instscript-'))
+  try {
+    writeFileSync(join(tmp, 'package.json'), JSON.stringify({
+      name: 'b', version: '0.0.1', scripts: { prepare: 'npm run build' },
+    }))
+    const report = await scan(tmp)
+    const f = report.findings.find((x) => x.id === 'SEN-INST-001')
+    assert.ok(f, 'still reported for review')
+    assert.equal(f.severity, 'medium', 'plain build script is a review item, not high')
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
+test('same-rule spam on one file is capped at 10 findings', async () => {
+  const tmp = mkdtempSync(join(process.env.TEMP ?? '/tmp', 'sentinel-cap-'))
+  try {
+    const lines = []
+    for (let i = 0; i < 30; i += 1) lines.push(`fetch('/api/endpoint-${i}')`)
+    writeFileSync(join(tmp, 'n.js'), lines.join('\n') + '\n')
+    const report = await scan(join(tmp, 'n.js'))
+    const net = report.findings.filter((f) => f.id === 'SEN-NET-001')
+    assert.ok(net.length <= 10, `capped at 10, got ${net.length}`)
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
 test('single-file scan works', async () => {
   const evilFile = join(FIXTURES, 'evil-plugin', 'plugin', 'index.js')
   const report = await scan(evilFile)

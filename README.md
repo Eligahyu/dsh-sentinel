@@ -102,15 +102,17 @@ scan time     18 ms
 
 | 严重度 | 权重 | 示例 |
 | --- | --- | --- |
-| 🔴 critical | 50 | 远程代码下载执行、读取 SSH 私钥、外传端点、`rm -rf $HOME`、安装脚本 `curl|bash` |
-| 🟠 high | 20 | `eval`、硬编码密钥、env 凭据读取、`postinstall` 脚本、入口契约缺失 |
-| 🟡 medium | 8 | shell 执行、网络调用、写入工作区外、patch 解析问题 |
+| 🔴 critical | 50 | 远程代码下载执行、读取 SSH 私钥、外传端点、`rm -rf $HOME`、安装脚本含网络下载 |
+| 🟠 high | 20 | `eval`、硬编码密钥、env 凭据读取、入口契约缺失 |
+| 🟡 medium | 8 | shell 执行、网络调用、写入工作区外、安装生命周期脚本(需人工确认)、patch 解析问题 |
 | 🟢 low | 3 | 编码载荷混用、硬编码公网 IP、缺 license/description |
 | ⚪ info | 0 | 统计信息 |
 
 总分封顶 100:**0–19 ✅ safe · 20–49 👀 review · 50–79 ⚠️ risky · 80–100 🚨 dangerous**——单条 critical(50 分)即达 risky,两条即 dangerous。
 
 > 测试上下文:位于 `test/`、`tests/`、`__tests__/` 等目录或 `*.spec.*`、`*.test.*`、`*.e2e.*` 文件中的命中会打上 `(test)` 标记并**降一级计分**(测试 fixture 通常是故意构造的恶意字符串/二进制数据),但仍完整列出、不隐藏。
+>
+> 降噪设计:纯注释行不触发执行类规则(避免 JSDoc 里提到 `spawn()` 被误报);同一规则在同一文件的命中最多记 10 条(能力证明即可,避免刷屏);`chmod 0o600/0o700` 等严格权限是良好实践,只对宽松权限(777/666)告警;`prepare: npm run build` 这类 DSH 官方推荐的构建脚本按 medium 复核项处理。
 
 完整规则目录(30+ 条,含检测模式说明)见 [docs/rules.md](docs/rules.md)。
 

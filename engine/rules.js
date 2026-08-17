@@ -86,6 +86,7 @@ export const RULES = Object.freeze([
     description: '插件调用系统命令。部分 DSH 插件(终端、构建类)确有正当需求,但这是插件越权的最高频入口,必须逐处审查。',
     recommendation: '确认每个执行点都是功能必需、命令与参数均为静态常量(不含拼接的用户输入/环境变量),且沙箱外执行需用户知情。',
     filePattern: CODE,
+    ignoreComments: true,
     linePatterns: [
       { re: /(?:child_process|cp)\s*\.\s*(?:exec|execSync|execFile|spawn|spawnSync|fork)\s*\(/ },
       { re: /(?<![.\w$])(?:exec|execSync|spawn|spawnSync)\s*\(/ },
@@ -101,6 +102,7 @@ export const RULES = Object.freeze([
     description: 'eval、new Function、vm.runIn*、Module._compile、process.binding 等动态执行机制。配合网络或解码即高危。',
     recommendation: '审查动态执行的内容来源;任何来自网络、环境变量或解码字符串的动态执行都应视为危险。',
     filePattern: CODE,
+    ignoreComments: true,
     linePatterns: [
       { re: /(?<![.\w$])(?:eval|Function)\s*\(/ },
       { re: /\bvm\s*\.\s*(?:runIn|compileFunction|createScript)/ },
@@ -142,6 +144,7 @@ export const RULES = Object.freeze([
     description: '代码读取 ~/.ssh、~/.aws/credentials、.npmrc、.netrc、kubeconfig、docker config、.git-credentials 等敏感文件。',
     recommendation: '拒绝安装。DSH 插件没有读取用户私钥的任何正当理由。',
     filePattern: CODE,
+    ignoreComments: true,
     linePatterns: [
       {
         re: /(?:readFile|readFileSync|createReadStream|openSync|require\s*\(\s*["'`])[^;\n]{0,160}?(?:\.ssh[\\\/]|id_rsa|id_ed25519|\.aws[\\\/]|credentials|\.npmrc|\.netrc|\.kube[\\\/]|\.docker[\\\/]config|\.git-credentials)/i,
@@ -160,6 +163,7 @@ export const RULES = Object.freeze([
     description: '代码访问 process.env 中名称含 API_KEY/TOKEN/SECRET/PASSWORD 或知名厂商前缀(DeepSeek/OpenAI/Anthropic/GitHub/AWS)的变量。',
     recommendation: '确认凭据读取是否功能必需(如官方 API 客户端),以及凭据是否仅用于本机调用、绝不出网。',
     filePattern: CODE,
+    ignoreComments: true,
     linePatterns: [
       {
         re: /process\s*\.\s*env\s*\.?\s*\[?["'`]?[A-Za-z_]*(?:API_KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|PRIVATE_KEY|AUTH)[A-Za-z_]*["'`]?\]?/i,
@@ -221,6 +225,7 @@ export const RULES = Object.freeze([
     description: '代码向已知的"接收任意数据"类服务发起请求:webhook.site、requestbin、pastebin、Discord webhook、Telegram bot、ngrok/serveo 隧道、oast/interactsh 等。',
     recommendation: '拒绝安装。正常插件不会把数据发往这些端点。',
     filePattern: CODE,
+    ignoreComments: true,
     linePatterns: [
       {
         re: /https?:\/\/[^"'`\s)]{0,120}?(?:webhook\.site|requestbin\.com|pastebin\.com|discord(?:app)?\.com\/api\/webhooks|api\.telegram\.org\/bot|ngrok\.(?:io|app)|serveo\.net|localtunnel\.me|smee\.io|oast\.(?:me|online|fun|pro)|interact\.sh|webhook\.cc|pipedream\.net|requestcatcher\.com)/i,
@@ -312,11 +317,11 @@ export const RULES = Object.freeze([
   {
     id: 'SEN-INST-001',
     name: 'install-script-present',
-    severity: 'high',
+    severity: 'medium',
     category: 'install',
     message: '存在安装生命周期脚本(preinstall / install / postinstall / prepare)',
-    description: 'npm 安装时会自动执行这些脚本,且运行在用户完整权限下、不在任何沙箱之内——这是供应链攻击的经典投放点。',
-    recommendation: '逐行审阅脚本内容;不确定就拒绝安装。可先以 --ignore-scripts 安装再手动审查。',
+    description: 'npm 安装时会自动执行这些脚本,运行在用户完整权限下、不在任何沙箱之内。注:DSH 官方对 git 安装的 TS bundle 也要求 prepare 构建脚本,因此仅"存在"本身不是恶意——需要人工确认脚本内容。',
+    recommendation: '逐行审阅脚本内容。纯构建类(prepare: npm run build / tsc / tsdown)可接受;含网络下载、base64、chmod 等请按 SEN-INST-002 处理。',
     filePattern: /package\.json$/i,
     contentPatterns: [
       {
@@ -350,6 +355,7 @@ export const RULES = Object.freeze([
     description: '删除命令的目标是 ~、/、C:\、/home、/root、/etc 等关键路径。',
     recommendation: '拒绝安装。任何指向用户主目录或系统目录的递归删除都是恶意特征。',
     filePattern: CODE,
+    ignoreComments: true,
     linePatterns: [
       {
         re: /(?:rm|del)\s+(?:-rf|-fr|-\s*r\s*f|[-/]s\s+[-/]q)[^;&|]{0,80}?(?:~|\/home\/|\/root|\/etc\/|\/usr\/|C:\\|%USERPROFILE%|%HOMEDRIVE%|\$HOME|\\$home)/i,
@@ -379,12 +385,15 @@ export const RULES = Object.freeze([
     name: 'permission-mutation',
     severity: 'medium',
     category: 'filesystem',
-    message: '修改权限 / 提权(chmod / chown / sudo / setuid)',
-    description: '代码修改文件权限或以更高权限执行。',
-    recommendation: '确认必要性;插件代码中出现 sudo/提权应视为高度可疑。',
+    message: '宽松权限修改 / 提权(chmod 777 / sudo / setuid 等)',
+    description: '代码把文件设为宽松权限(777 / a+rwx / 递归 -R 置宽)或提权执行。严格权限(0o600/0o700/0o644/0o755 等)是良好实践,不在此列。',
+    recommendation: '确认宽松权限与提权操作的必要性;插件代码中出现 sudo/777 应视为高度可疑。',
     filePattern: CODE,
+    ignoreComments: true,
     linePatterns: [
-      { re: /\b(?:chmod|chown|sudo|setuid|setgid|chflags)\s*\(|["'`](?:chmod|chown|sudo|setuid)[ "'`]/i },
+      { re: /\bchmod\s*\([^)]{0,60}?(?:0o?777|777|0o?666|666|a\+rwx)\b/i },
+      { re: /\bchmod\s+(?:-R\s+)?(?:777|666|a\+rwx)\b/i },
+      { re: /\b(?:chown|sudo|setuid|setgid|chflags)\s*\(|["'`](?:sudo|chmod\s+777|chown)[ "'`]/i },
     ],
   },
   {
@@ -411,6 +420,7 @@ export const RULES = Object.freeze([
     description: '插件存在出网能力。本身不一定是恶意(搜索、API 客户端等),但必须逐处确认请求目标与携带数据。',
     recommendation: '列出所有请求端点;确认无凭据、无工作区内容外传。',
     filePattern: CODE,
+    ignoreComments: true,
     linePatterns: [
       { re: /\b(?:fetch|axios|XMLHttpRequest|sendBeacon|WebSocket|EventSource)\s*\(/ },
       { re: /\b(?:http|https)\.(?:request|get)\s*\(/ },
