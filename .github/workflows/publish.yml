@@ -1,35 +1,25 @@
-name: publish
+name: Publish Package
 
-# Trusted Publishing (OIDC) — 无需任何 npm 令牌/OTP。
-# 前提:在 npmjs.com 把本仓库添加为该包的受信发布者(见 docs/roadmap.md)。
 on:
   push:
-    tags: ['v*']
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
-  id-token: write
+  id-token: write # Required for OIDC (trusted publishing)
   contents: read
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: node --test test/scan.test.js test/plugin-load.test.js
-
   publish:
-    needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22
-          registry-url: https://registry.npmjs.org
-      # OIDC 令牌交换由 npm CLI 自动完成(id-token: write 权限已声明),
-      # 不需要 NODE_AUTH_TOKEN。
-      - run: npm publish --provenance --access public
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false # never use caching in release builds
+      # 零第三方依赖:无 npm ci / build;直接跑测试。
+      - run: node --test test/scan.test.js test/plugin-load.test.js
+      - run: npm publish # OIDC 模式下自动完成身份交换与 provenance
