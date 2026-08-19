@@ -217,6 +217,10 @@ export function buildReport(parts, maxFindings = 300) {
       parseFailures: parts.scanCoverage?.parseFailures ?? 0,
       hardSkippedFiles: parts.scanCoverage?.hardSkippedFiles ?? 0,
       binarySkippedFiles: parts.scanCoverage?.binarySkippedFiles ?? 0,
+      readFailures: parts.scanCoverage?.readFailures ?? 0,
+      hashFailures: parts.scanCoverage?.hashFailures ?? 0,
+      analysisFailures: parts.scanCoverage?.analysisFailures ?? 0,
+      traversalFailures: parts.scanCoverage?.traversalFailures ?? 0,
     },
     manifest: parts.manifest,
     profile: {

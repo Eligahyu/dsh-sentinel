@@ -159,7 +159,8 @@ export function globToRegExp(pattern) {
  * 超过 hardMaxBytesPerFile 的文件收集进 hardSkipped(绝不 silent skip);
  * 可执行二进制收集进 binaries(metadata audit)。
  * @returns {{ files: Array, largeFiles: Array, binaries: Array, hardSkipped: Array,
- *             skipped: {binary, big, dirs, ignored}, ignored: Array, truncated: boolean }}
+ *             skipped: {binary, big, dirs, ignored}, ignored: Array, truncated: boolean,
+ *             traversalFailures: Array<{path, stage: 'walk'|'stat', reason}> }}
  */
 export function collectFiles(root, {
   maxFiles = DEFAULT_LIMITS.maxFiles,
@@ -168,7 +169,10 @@ export function collectFiles(root, {
   mode = 'source',
   includeBuildArtifacts = false,
   ignore = [],
+  __io = {},
 } = {}) {
+  const readdir = __io.readdir ?? readdirSync
+  const lstat = __io.lstat ?? lstatSync
   let skipDirs = mode === 'source' ? SKIP_DIRECTORIES : SKIP_PACKAGE_DIRECTORIES
   if (mode === 'source' && includeBuildArtifacts) skipDirs = SKIP_PACKAGE_DIRECTORIES
   const ignoreRules = (ignore ?? []).map((pattern) => ({ pattern: String(pattern), re: globToRegExp(String(pattern)) }))
@@ -176,6 +180,7 @@ export function collectFiles(root, {
   const entries = []
   const binaries = []
   const hardSkipped = []
+  const traversalFailures = []
   const skipped = { binary: 0, big: 0, dirs: 0, ignored: 0 }
   let truncated = false
 
@@ -197,8 +202,9 @@ export function collectFiles(root, {
     }
     let dirEntries
     try {
-      dirEntries = readdirSync(dir, { withFileTypes: true })
-    } catch {
+      dirEntries = readdir(dir, { withFileTypes: true })
+    } catch (e) {
+      traversalFailures.push({ path: relPrefix || dir, stage: 'walk', reason: e.code ?? e.message })
       return
     }
     for (const entry of dirEntries) {
@@ -210,8 +216,9 @@ export function collectFiles(root, {
       const rel = relPrefix ? `${relPrefix}/${entry.name}` : entry.name
       let stat
       try {
-        stat = lstatSync(abs)
-      } catch {
+        stat = lstat(abs)
+      } catch (e) {
+        traversalFailures.push({ path: rel, stage: 'stat', reason: e.code ?? e.message })
         continue
       }
       if (stat.isSymbolicLink()) continue // never follow symlinks
@@ -257,7 +264,7 @@ export function collectFiles(root, {
     else files.push(e)
   }
   const ignored = [...ignoredCounts].map(([pattern, count]) => ({ pattern, count }))
-  return { files, largeFiles, binaries, hardSkipped, skipped, ignored, truncated }
+  return { files, largeFiles, binaries, hardSkipped, skipped, ignored, truncated, traversalFailures }
 }
 
 /**
@@ -353,6 +360,8 @@ export function analyzeLargeFileLite(content, relPath, { hash, bytes }) {
  * 优先级有界缓冲:始终保留风险最高的 max 条(critical > high > medium > low > info),
  * 而不是最先出现的 max 条。critical/high 即使出现在后面也不会因为 cap 丢失。
  */
+const PRIORITY = { info: 0, low: 1, medium: 2, high: 3, critical: 4 }
+
 export class FindingBuffer {
   constructor(max) {
     this.max = Math.max(1, Number(max) || 300)
@@ -361,20 +370,26 @@ export class FindingBuffer {
   }
 
   add(f) {
-    const bucket = this.buckets[f.severity] ?? this.buckets.info
+    const sev = f.severity ?? 'info'
+    const incomingPriority = PRIORITY[sev] ?? 0
     if (this.count < this.max) {
-      bucket.push(f)
+      this.buckets[sev].push(f)
       this.count += 1
-      return
+      return true
     }
-    // 满:从最低优先级非空桶的队头(最早到达)淘汰,新条目入队尾。
-    for (const sev of ['info', 'low', 'medium', 'high', 'critical']) {
-      if (this.buckets[sev].length > 0) {
-        this.buckets[sev].shift()
-        bucket.push(f)
-        return
-      }
+    // 满:只允许更高优先级条目淘汰当前最低非空桶的最早条目;
+    // 更低或相同优先级一律拒绝(incoming < lowest → drop;== → 保留最先出现)。
+    for (const bucketSev of ['info', 'low', 'medium', 'high', 'critical']) {
+      const arr = this.buckets[bucketSev]
+      if (arr.length === 0) continue
+      const existingPriority = PRIORITY[bucketSev]
+      if (incomingPriority < existingPriority) return false
+      if (incomingPriority === existingPriority) return false
+      arr.shift()
+      this.buckets[sev].push(f)
+      return true
     }
+    return false
   }
 
   /** 按优先级从高到低输出(报告展示前会再次排序)。 */
@@ -620,8 +635,12 @@ export function binaryFindingsFor(meta) {
  */
 export async function scanTree(root, opts = {}) {
   const limits = { ...DEFAULT_LIMITS, ...opts }
+  const io = limits.__io ?? {}
+  const readFile = io.readFile ?? readFileSync
+  const hashFile = io.hashFile ?? hashFileStream
   const {
     files, largeFiles, binaries, hardSkipped, skipped, ignored, truncated,
+    traversalFailures,
   } = collectFiles(root, limits)
 
   const collector = new FindingCollector({
@@ -633,12 +652,15 @@ export async function scanTree(root, opts = {}) {
   const largest = []
   let sourceFiles = 0
   let buildFiles = 0
+  let filesAnalyzed = 0
+  const analysisFailures = []
 
   for (const file of files) {
     let content
     try {
-      content = readFileSync(file.abs, 'utf8')
-    } catch {
+      content = readFile(file.abs, 'utf8')
+    } catch (e) {
+      analysisFailures.push({ path: file.rel, stage: 'read', reason: e.code ?? e.message })
       continue
     }
     const ext = extOf(file.rel).replace(/^\./, '') || 'text'
@@ -670,13 +692,15 @@ export async function scanTree(root, opts = {}) {
       collector.addSemantic(sem, file.rel)
     }
     collector.finalizeFile(file.rel)
+    filesAnalyzed += 1
   }
 
   for (const lf of largeFiles) {
     let content
     try {
-      content = readFileSync(lf.abs, 'utf8')
-    } catch {
+      content = readFile(lf.abs, 'utf8')
+    } catch (e) {
+      analysisFailures.push({ path: lf.rel, stage: 'read', reason: e.code ?? e.message })
       continue
     }
     const ext = extOf(lf.rel).replace(/^\./, '') || 'text'
@@ -695,6 +719,7 @@ export async function scanTree(root, opts = {}) {
     }
     for (const h of lite.hits) collector.addRuleHits(h.rule, h.total, h.findings, lf.rel)
     collector.finalizeFile(lf.rel)
+    filesAnalyzed += 1
   }
 
   // 可执行二进制 metadata audit(SEN-BIN-*/SEN-WASM-*)
@@ -703,8 +728,9 @@ export async function scanTree(root, opts = {}) {
   for (const bin of binaries.slice(0, binaryLimit)) {
     let hash
     try {
-      hash = await hashFileStream(bin.abs)
-    } catch {
+      hash = await hashFile(bin.abs)
+    } catch (e) {
+      analysisFailures.push({ path: bin.rel, stage: 'hash', reason: e.code ?? e.message })
       continue
     }
     const { head } = sampleHeadTail(bin.abs, bin.size)
@@ -714,6 +740,7 @@ export async function scanTree(root, opts = {}) {
     findingsTotal += fs.length
     collector.addSemantic(fs, bin.rel)
     collector.finalizeFile(bin.rel)
+    filesAnalyzed += 1
   }
   if (binaries.length > binaryLimit) binarySkippedCount = binaries.length - binaryLimit
 
@@ -723,20 +750,23 @@ export async function scanTree(root, opts = {}) {
     try {
       const meta = await hardSkippedMetadata(h.abs, h.size)
       hardSkippedMeta.push({ ...meta, path: h.rel })
-    } catch {
+    } catch (e) {
       hardSkippedMeta.push({ path: h.rel, size: h.size, sha256: '', extension: extOf(h.rel), classification: 'unknown', hints: {} })
+      analysisFailures.push({ path: h.rel, stage: 'metadata', reason: e.code ?? e.message })
     }
   }
 
   largest.sort((a, b) => b.bytes - a.bytes)
-  const filesAnalyzed = files.length + largeFiles.length + binaries.slice(0, binaryLimit).length
+  const readFailures = analysisFailures.filter((f) => f.stage === 'read').length
+  const hashFailures = analysisFailures.filter((f) => f.stage === 'hash').length
   return {
     findings: collector.findings(),
     allStats: collector.stats(),
     findingsTotal,
     filesAnalyzed,
-    filesDiscovered: filesAnalyzed + hardSkipped.length + skipped.binary + skipped.ignored + binarySkippedCount,
-    scanComplete: !truncated && hardSkipped.length === 0 && binarySkippedCount === 0,
+    filesDiscovered: filesAnalyzed + hardSkipped.length + skipped.binary + skipped.ignored + binarySkippedCount + analysisFailures.length,
+    scanComplete: !truncated && hardSkipped.length === 0 && binarySkippedCount === 0
+      && analysisFailures.length === 0 && traversalFailures.length === 0,
     scanCoverage: {
       sourceFiles,
       buildFiles,
@@ -745,7 +775,13 @@ export async function scanTree(root, opts = {}) {
       parseFailures: 0,
       hardSkippedFiles: hardSkipped.length,
       binarySkippedFiles: binarySkippedCount,
+      readFailures,
+      hashFailures,
+      analysisFailures: analysisFailures.length,
+      traversalFailures: traversalFailures.length,
     },
+    coverageSkips: analysisFailures,
+    traversalFailures,
     filesSkipped: skipped,
     hardSkipped: hardSkippedMeta,
     ignored,

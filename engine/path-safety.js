@@ -82,11 +82,19 @@ function hasSymlinkSegment(root, abs) {
 /**
  * 把 candidate 解析为 root 内的绝对路径;若逃逸(词法/realpath)或穿越
  * symlink 则抛 PathEscapeError。candidate 可以是相对或绝对路径,均按绝对校验。
+ * mustExist:true 时目标不存在同样抛 PathEscapeError(调用方据此跳过读取)。
  */
-export function resolveInside(root, candidate) {
+export function resolveInside(root, candidate, { mustExist = false } = {}) {
   const abs = resolve(root, candidate)
   if (!isInsideRoot(root, abs)) throw new PathEscapeError(candidate)
   if (!isInsideRootReal(root, abs)) throw new PathEscapeError(candidate)
   if (hasSymlinkSegment(root, abs)) throw new PathEscapeError(candidate)
+  if (mustExist) {
+    try {
+      lstatSync(abs)
+    } catch {
+      throw new PathEscapeError(candidate)
+    }
+  }
   return abs
 }

@@ -21,6 +21,7 @@ import { inspectBundle } from './manifest.js'
 import { buildReport, verdictFor } from './report.js'
 import { RULES, CODE_EXT } from './rules.js'
 import { semanticScan } from './semantic/index.js'
+import { resolveInside } from './path-safety.js'
 
 export { VERSION } from './version.js'
 export { RULES } from './rules.js'
@@ -54,13 +55,21 @@ function findBundleRoot(target) {
  * 计算"运行期可达"文件集合(相对 bundleRoot):
  * package.json 的 main / exports / bin / dsh.bundle.patch 解析出的入口文件。
  * 用于 test 文件降权:被这些入口可达的 test 文件不得降权(§13)。
+ * 所有 manifest 派生路径(patch/main/exports/bin)一律先做 containment:
+ * 逃逸/穿越 symlink/不存在(patch mustExist)时跳过,绝不读取 root 外文件。
  */
 export function computeRuntimeEntries(bundleRoot) {
   const out = new Set()
   const pkg = readJsonSafe(join(bundleRoot, 'package.json'))
   if (!pkg) return out
   const add = (rel) => {
-    if (typeof rel === 'string' && rel.length > 0) out.add(rel.replace(/\\/g, '/'))
+    if (typeof rel !== 'string' || rel.length === 0) return
+    try {
+      const abs = resolveInside(bundleRoot, rel)
+      out.add(relative(bundleRoot, abs).replace(/\\/g, '/'))
+    } catch {
+      // manifest 负责 finding(SEN-MAN-009);入口不加入
+    }
   }
   if (typeof pkg.main === 'string') add(pkg.main)
   if (pkg.exports && typeof pkg.exports === 'object' && !Array.isArray(pkg.exports)) {
@@ -74,7 +83,13 @@ export function computeRuntimeEntries(bundleRoot) {
     for (const v of Object.values(bins ?? {})) if (typeof v === 'string') add(v)
   }
   if (pkg.dsh?.bundle?.patch && typeof pkg.dsh.bundle.patch === 'string') {
-    const rows = parsePatchRows(readMaybe(join(bundleRoot, pkg.dsh.bundle.patch)) ?? '')
+    let patchPath
+    try {
+      patchPath = resolveInside(bundleRoot, pkg.dsh.bundle.patch, { mustExist: true })
+    } catch {
+      return out // patch 逃逸/缺失:manifest 负责 finding,绝不读取 root 外文件
+    }
+    const rows = parsePatchRows(readMaybe(patchPath) ?? '')
     for (const row of rows) {
       if (!row.name || row.name.startsWith('cordis:') || row.name.startsWith('@deepseek-ai/')) continue
       try {
