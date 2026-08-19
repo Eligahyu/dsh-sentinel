@@ -49,13 +49,20 @@ export async function downloadTarball(tarballUrl, integrity) {
 /**
  * 把 tarball 解包到隔离目录(quarantine)。绝不执行包内任何脚本。
  * 任何成功 / 失败 / 异常路径都必须 finally cleanup(调用方负责)。
+ * TarSafetyError(或任何解包异常)时自行清理已创建的 quarantine 目录。
  * @returns {Promise<{dir: string, cleanup: () => void, entries: number, unpackedBytes: number}>}
  */
 export async function extractTarball(tarballPath) {
   const base = join(tmpdir(), `sentinel-quarantine-${Date.now()}-${Math.random().toString(36).slice(2)}`)
   const extractDir = join(base, 'x')
   mkdirSync(extractDir, { recursive: true })
-  const stats = extractTarballSafe(tarballPath, extractDir)
+  let stats
+  try {
+    stats = extractTarballSafe(tarballPath, extractDir)
+  } catch (error) {
+    rmSync(base, { recursive: true, force: true }) // P0-6:失败路径不留 quarantine
+    throw error
+  }
   // npm tarball 内容在 package/ 下;若缺则用整个解包目录。
   const pkgDir = join(extractDir, 'package')
   const dir = readdirSync(extractDir).length === 1 && readdirSync(extractDir)[0] === 'package'

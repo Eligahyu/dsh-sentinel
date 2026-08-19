@@ -14,6 +14,7 @@ import { downloadTarball, extractTarball, TarSafetyError } from './tarball.js'
 import { detectLockfile, countDependencies } from '../supplychain/lockfile.js'
 import { scan } from '../index.js'
 import { buildReport } from '../report.js'
+import { rmSync } from 'node:fs'
 
 export const AUDIT_VERDICTS = ['ALLOW', 'REVIEW', 'BLOCK-RECOMMENDED']
 
@@ -71,12 +72,15 @@ function buildBlockedReport(meta, dl, error) {
 export async function auditPackageBeforeInstall(spec, opts = {}) {
   const meta = await acquireNpmPackage(spec)
   const dl = await downloadTarball(meta.dist.tarball, meta.dist.integrity)
+  // P0-6:无论成功/失败/异常,下载的 tgz 与解包 quarantine 都必须清理。
+  const removeTarball = () => rmSync(dl.tarballPath, { force: true })
 
   // 解包被安全层阻止(traversal / symlink / tar bomb)→ BLOCK + scanComplete=false。
   let extraction
   try {
     extraction = await extractTarball(dl.tarballPath)
   } catch (error) {
+    removeTarball()
     if (error instanceof TarSafetyError) {
       const report = buildBlockedReport(meta, dl, error)
       const audit = {
@@ -160,7 +164,8 @@ export async function auditPackageBeforeInstall(spec, opts = {}) {
     }
     return { report, audit }
   } finally {
-    cleanup()
+    cleanup() // quarantine
+    removeTarball() // tgz
   }
 }
 
@@ -173,11 +178,22 @@ export async function auditNpmSpec(spec, opts = {}) {
   return auditPackageBeforeInstall(clean, opts)
 }
 
-/** 仅获取并解包(供源码-发布包 diff 使用),不执行完整审计。 */
+/** 仅获取并解包(供源码-发布包 diff 使用),不执行完整审计。cleanup 同时删除 tgz 与 quarantine。 */
 export async function acquirePackageDir(spec) {
   const clean = spec.startsWith('npm:') ? spec.slice(4) : spec
   const meta = await acquireNpmPackage(clean)
   const dl = await downloadTarball(meta.dist.tarball, meta.dist.integrity)
-  const { dir, cleanup } = await extractTarball(dl.tarballPath)
+  let extraction
+  try {
+    extraction = await extractTarball(dl.tarballPath)
+  } catch (error) {
+    rmSync(dl.tarballPath, { force: true })
+    throw error
+  }
+  const { dir, cleanup: quarantineCleanup } = extraction
+  const cleanup = () => {
+    quarantineCleanup()
+    rmSync(dl.tarballPath, { force: true })
+  }
   return { dir, cleanup, meta, dl }
 }

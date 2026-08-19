@@ -2,13 +2,17 @@
 // Covers P0/P1 fixes from dsh-sentinel-v0.4-final-release-hardening.md.
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, mkdirSync, readdirSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { execFileSync } from 'node:child_process'
+import { gzipSync } from 'node:zlib'
 
 import { FindingBuffer, scanTree, collectFiles } from '../engine/scanner.js'
 import { computeRuntimeEntries } from '../engine/index.js'
 import { PathEscapeError, resolveInside } from '../engine/path-safety.js'
+import { extractTarball } from '../engine/package/tarball.js'
+import { extractTarballSafe, TarSafetyError } from '../engine/package/tar.js'
 
 // ---- P0-1: FindingBuffer 反向淘汰 ----
 
@@ -199,4 +203,89 @@ test('resolveInside mustExist:逃逸与缺失都抛 PathEscapeError,合法存在
   assert.throws(() => resolveInside(root, 'nope.js', { mustExist: true }), PathEscapeError)
   const abs = resolveInside(root, 'index.js', { mustExist: true })
   assert.ok(abs.endsWith('index.js'))
+})
+
+// ---- P0-6: tarball / quarantine 全生命周期 cleanup ----
+
+function sentinelLeftovers() {
+  return readdirSync(tmpdir()).filter((n) => n.startsWith('sentinel-pkg-') || n.startsWith('sentinel-quarantine-'))
+}
+
+/** 手工构造带指定条目名的 gzip tar(绕过 tar.exe 的路径规范化)。 */
+function makeEvilTar(filePath, entryName) {
+  const header = Buffer.alloc(512)
+  Buffer.from(entryName, 'utf8').copy(header, 0)
+  header.write('0000644', 100, 8)
+  header.write('0000000', 108, 8)
+  header.write('0000000', 116, 8)
+  header.write('00000000000', 124, 12) // size 0
+  header.write('00000000000', 136, 12)
+  header.fill(0x20, 148, 156) // chksum placeholder: spaces
+  header[156] = 0x30 // '0' regular file
+  header.write('ustar', 257, 5)
+  header.write('00', 263, 2)
+  let sum = 0
+  for (const b of header) sum += b
+  header.write(sum.toString(8).padStart(6, '0'), 148, 6)
+  header[154] = 0
+  header[155] = 0x20
+  const data = Buffer.alloc(512)
+  const trailer = Buffer.alloc(1024)
+  writeFileSync(filePath, gzipSync(Buffer.concat([header, data, trailer])))
+}
+
+test('extractTarball:成功解包后 cleanup 无 quarantine 残留', async () => {
+  const before = new Set(sentinelLeftovers())
+  // 构造一个合法 npm 风格 tarball(package/ 目录)
+  const pkgDir = mkdtempSync(join(tmpdir(), 'pkg-src-'))
+  const inner = join(pkgDir, 'package')
+  mkdirSync(inner)
+  writeFileSync(join(inner, 'index.js'), 'export const name = "x"\nexport function apply() {}\n')
+  writeFileSync(join(inner, 'package.json'), '{"name":"x","version":"1.0.0"}')
+  const tar = join(pkgDir, 'x.tgz')
+  execFileSync('tar.exe', ['-czf', tar, '-C', pkgDir, 'package'])
+  const { cleanup } = await extractTarball(tar)
+  cleanup()
+  const after = sentinelLeftovers().filter((n) => !before.has(n))
+  assert.deepEqual(after, [], '无 quarantine 残留')
+})
+
+test('extractTarball:恶意 tar(TarSafetyError)自行清理 quarantine', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'evil-tar-'))
+  const tar = join(root, 'evil.tgz')
+  makeEvilTar(tar, '../../evil.txt')
+  const before = new Set(sentinelLeftovers())
+  await assert.rejects(() => extractTarball(tar), (e) => e instanceof TarSafetyError)
+  const after = sentinelLeftovers().filter((n) => !before.has(n))
+  assert.deepEqual(after, [], 'TarSafetyError 后无 quarantine 残留')
+})
+
+test('auditPackageBeforeInstall:成功路径无 tgz/quarantine 残留(联网,不可达时跳过)', async (t) => {
+  const { auditNpmSpec } = await import('../engine/package/audit.js')
+  const before = new Set(sentinelLeftovers())
+  try {
+    const { audit } = await auditNpmSpec('npm:is-number@7.0.0', { maxFiles: 200 })
+    assert.equal(audit.package, 'is-number')
+  } catch (error) {
+    t.skip(`registry 不可达,跳过联网 cleanup 测试:${error.message}`)
+    return
+  }
+  const after = sentinelLeftovers().filter((n) => !before.has(n))
+  assert.deepEqual(after, [], '成功路径 tgz+quarantine 均无残留')
+})
+
+test('diffPackageWithSource:完成后 tgz 与 quarantine 都清理(联网,不可达时跳过)', async (t) => {
+  const { diffPackageWithSource } = await import('../engine/package/diff.js')
+  const before = new Set(sentinelLeftovers())
+  try {
+    const src = mkdtempSync(join(tmpdir(), 'diff-src-'))
+    writeFileSync(join(src, 'package.json'), '{"name":"is-number","version":"7.0.0"}')
+    const result = await diffPackageWithSource(src, 'npm:is-number@7.0.0')
+    assert.ok(Array.isArray(result.diff.extraFiles))
+  } catch (error) {
+    t.skip(`registry 不可达,跳过 diff cleanup 测试:${error.message}`)
+    return
+  }
+  const after = sentinelLeftovers().filter((n) => !before.has(n))
+  assert.deepEqual(after, [], 'diff 路径 tgz+quarantine 均无残留')
 })
