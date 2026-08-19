@@ -679,9 +679,9 @@ test('version consistency:package.json == package-lock == VERSION', async () => 
   const { VERSION } = await import('../engine/version.js')
   assert.equal(lock.packages[''].version, pkg.version)
   assert.equal(VERSION, pkg.version)
-  // engines 与 parser runtime 精确对齐(^22.18.0 || >=24.11.0)
-  assert.match(pkg.engines.node, /22\.18/, 'engines 覆盖 Node 22.18')
-  assert.match(pkg.engines.node, /24\.11/, 'engines 覆盖 Node 24.11')
+  // §23:runtime contract 与最严格 runtime dependency 精确对齐
+  assert.equal(lock.packages[''].engines.node, pkg.engines.node, 'lock engine 与 package engine 精确一致')
+  assert.equal(pkg.engines.node, '^22.18.0 || >=24.11.0', '与 parser runtime 对齐')
 })
 
 // ---- §17.4 关键词覆盖(最终测试证据必须可见) ----
