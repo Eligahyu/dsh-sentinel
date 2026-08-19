@@ -25,7 +25,7 @@
 | `SEN-FS-002` | 🟡 medium(8 分) | filesystem | **write-outside-workspace** | 代码向 /etc、C:、用户主目录等绝对路径写入文件。 |
 | `SEN-FS-003` | 🟡 medium(8 分) | filesystem | **permission-mutation** | 代码把文件设为宽松权限(777 / a+rwx / 递归 -R 置宽)或提权执行。严格权限(0o600/0o700/0o644/0o755 等)是良好实践,不在此列。 |
 | `SEN-FS-004` | 🟢 low(3 分) | filesystem | **tempfile-in-exec** | shell 命令写入 /tmp 或 %TEMP%——配合下载执行是常见攻击链。 |
-| `SEN-NET-001` | 🟡 medium(8 分) | network | **network-call** | 插件存在出网能力。本身不一定是恶意(搜索、API 客户端等),但必须逐处确认请求目标与携带数据。 |
+| `SEN-NET-001` | 🟡 medium(8 分) | network | **network-call** | 插件存在出网能力。相对路径的同源调用(fetch('/plugin-api/...'))是客户端插件与自家宿主的本地通道,不算外发;只有绝对 URL(http/https/ws)、协议相对(//host)或变量目标的调用才命中。 |
 | `SEN-NET-002` | 🟢 low(3 分) | network | **hardcoded-ip** | 源码中直接出现公网 IPv4 字面量(排除 127.x / 10.x / 192.168.x / 172.16-31.x / 0.x / 255.x)。 |
 | `SEN-MAN-001` | 🟡 medium(8 分) | manifest | **missing-package-manifest** | 扫描目标不是 npm 包结构,无法作为 DSH bundle 安装。 |
 | `SEN-MAN-002` | 🟠 high(20 分) | manifest | **not-a-dsh-bundle** | package.json 中没有 dsh.bundle,`dsh plugin add` 不会激活其任何层。 |

@@ -222,11 +222,25 @@ test('same-rule spam on one file is capped at 10 findings', async () => {
   const tmp = mkdtempSync(join(process.env.TEMP ?? '/tmp', 'sentinel-cap-'))
   try {
     const lines = []
-    for (let i = 0; i < 30; i += 1) lines.push(`fetch('/api/endpoint-${i}')`)
+    for (let i = 0; i < 30; i += 1) lines.push(`fetch('https://api.example.com/endpoint-${i}')`)
     writeFileSync(join(tmp, 'n.js'), lines.join('\n') + '\n')
     const report = await scan(join(tmp, 'n.js'))
     const net = report.findings.filter((f) => f.id === 'SEN-NET-001')
     assert.ok(net.length <= 10, `capped at 10, got ${net.length}`)
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
+test('same-origin relative fetches (plugin API calls) are not outbound network', async () => {
+  const tmp = mkdtempSync(join(process.env.TEMP ?? '/tmp', 'sentinel-sameorigin-'))
+  try {
+    writeFileSync(join(tmp, 'c.js'),
+      "fetch('/_plugin/status')\nfetch(`/api/${id}`)\nconst r = await fetch('https://evil.example/x')\nfetch(url)\n")
+    const report = await scan(join(tmp, 'c.js'))
+    const net = report.findings.filter((f) => f.id === 'SEN-NET-001')
+    assert.equal(net.length, 2, 'only absolute URL and variable-target fetches flag')
+    assert.ok(net.every((f) => f.line === 3 || f.line === 4))
   } finally {
     rmSync(tmp, { recursive: true, force: true })
   }
@@ -358,10 +372,14 @@ test('scanProfile audits only third-party plugins and tags findings', async () =
     // Built-ins must be skipped, not scanned.
     mkdirSync(join(modules, '@deepseek-ai', 'dsh-base'), { recursive: true })
     writeFileSync(join(modules, '@deepseek-ai', 'dsh-base', 'package.json'), JSON.stringify({ name: '@deepseek-ai/dsh-base', version: '0.0.1' }))
+    // The scanner itself must be excluded from its own profile audit.
+    mkdirSync(join(modules, 'deepseek-harness-sentinel'), { recursive: true })
+    writeFileSync(join(modules, 'deepseek-harness-sentinel', 'package.json'), JSON.stringify({ name: 'deepseek-harness-sentinel', version: '0.0.1' }))
 
     const report = await scanProfile('web', { env: { DSH_HOME: tmp } })
     assert.deepEqual(report.profile.pluginsScanned, ['third-party-evil'])
     assert.ok(report.profile.pluginsSkipped.some((s) => s.includes('@deepseek-ai')))
+    assert.ok(report.profile.pluginsSkipped.some((s) => s.includes('deepseek-harness-sentinel') && s.includes('self')), 'self must be skipped')
     assert.ok(report.findings.some((f) => f.package === 'third-party-evil' && f.id === 'SEN-EXFIL-001'))
     assert.ok(report.findings.some((f) => f.package === 'third-party-evil' && f.id === 'SEN-EXFIL-002'))
   } finally {

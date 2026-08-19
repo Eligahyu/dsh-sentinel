@@ -421,13 +421,20 @@ export const RULES = Object.freeze([
     name: 'network-call',
     severity: 'medium',
     category: 'network',
-    message: '发起网络请求(fetch / http / WebSocket / 套接字)',
-    description: '插件存在出网能力。本身不一定是恶意(搜索、API 客户端等),但必须逐处确认请求目标与携带数据。',
+    message: '发起外发网络请求(fetch 绝对 URL / WebSocket / 套接字)',
+    description: '插件存在出网能力。相对路径的同源调用(fetch(\'/plugin-api/...\'))是客户端插件与自家宿主的本地通道,不算外发;只有绝对 URL(http/https/ws)、协议相对(//host)或变量目标的调用才命中。',
     recommendation: '列出所有请求端点;确认无凭据、无工作区内容外传。',
     filePattern: CODE,
     ignoreComments: true,
     linePatterns: [
-      { re: /\b(?:fetch|axios|XMLHttpRequest|sendBeacon|WebSocket|EventSource)\s*\(/ },
+      {
+        re: /(?:fetch|axios|XMLHttpRequest|sendBeacon|WebSocket|EventSource)\s*\(\s*(?:["'`])(?:https?:|wss?:|\/\/)/i,
+        note: '绝对 URL / 协议相对',
+      },
+      {
+        re: /(?:fetch|axios|XMLHttpRequest|sendBeacon)\s*\(\s*[A-Za-z_$][\w$.]*\s*[,)]/,
+        note: '变量目标',
+      },
       { re: /\b(?:http|https)\.(?:request|get)\s*\(/ },
       { re: /\b(?:net|dgram)\.(?:connect|createConnection|createSocket)\s*\(/ },
     ],

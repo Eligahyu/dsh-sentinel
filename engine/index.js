@@ -165,6 +165,10 @@ export async function scanProfile(profile = 'web', opts = {}) {
           }
           const pkgDir = join(scopeDir, sub.name)
           const result = scanOnePlugin(pkgDir, perPluginMaxFiles, opts)
+          if (result !== null && result.self) {
+            pluginsSkipped.push(`${entry.name}/${sub.name} (self)`)
+            continue
+          }
           if (result !== null) {
             scanned += 1
             pluginsScanned.push(result.name)
@@ -185,6 +189,10 @@ export async function scanProfile(profile = 'web', opts = {}) {
       }
       const pkgDir = join(modulesDir, entry.name)
       const result = scanOnePlugin(pkgDir, perPluginMaxFiles, opts)
+      if (result !== null && result.self) {
+        pluginsSkipped.push(`${entry.name} (self)`)
+        continue
+      }
       if (result !== null) {
         scanned += 1
         pluginsScanned.push(result.name)
@@ -233,6 +241,9 @@ function readJsonSafe(absPath) {
   }
 }
 
+/** 扫描器自身的包名:profile 审计时排除自己(审计者不出现在被审计名单里)。 */
+export const SELF_PACKAGE = 'deepseek-harness-sentinel'
+
 function scanOnePlugin(pkgDir, maxFiles, opts) {
   let realDir = pkgDir
   try {
@@ -243,6 +254,8 @@ function scanOnePlugin(pkgDir, maxFiles, opts) {
   const pkg = readJsonSafe(join(realDir, 'package.json'))
   const name = pkg?.name ?? ''
   if (!name) return null
+  // 排除扫描器自身:规则库的字面量会自指命中,审计自己的规则集没有意义。
+  if (name === SELF_PACKAGE) return { name, self: true }
 
   // Collect without re-walking built-in modules twice: reuse scanTree with a
   // tighter per-plugin cap, then merge manifest findings with a package tag.

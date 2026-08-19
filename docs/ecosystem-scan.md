@@ -13,35 +13,52 @@
 
 | 插件 | 裁决 | 分 | 命中 | manifest |
 | --- | --- | --- | --- | --- |
-| dsh-market(插件市场) | 🚨 dangerous | 100/100 | 12(src 12) | bundle |
-| modlens(视觉) | ⚠️ risky | 64/100 | 8(src 8) | bundle |
 | ax-feishu-bridge(飞书桥) | ⚠️ risky | 60/100 | 6(src 6) | bundle |
 | dsh-TUI(终端 UI) | ⚠️ risky | 56/100 | 7(src 7) | bundle |
-| whale-girl(桌宠) | 👀 review | 48/100 | 6(src 6) | bundle |
+| dsh-market(插件市场) | 👀 review | 44/100 | 4(src 4) | bundle |
 | DSH-better-sidebar(侧边栏) | 👀 review | 44/100 | 4(src 4) | bundle |
 | dsh-interconnect(跨实例转发) | 👀 review | 40/100 | 2(src 2) | bundle |
+| lhh010__dsh-minigames | 👀 review | 40/100 | 5(src 5) | bundle |
 | dsh-qqbot(腾讯官方 QQ Bot) | 👀 review | 40/100 | 2(src 2) | bundle |
+| whale-girl(桌宠) | 👀 review | 40/100 | 5(src 5) | bundle |
+| deepseek-harness-studio(零代码桌面端) | 👀 review | 31/100 | 3(src 3) | 非 bundle |
+| dsh-custom-tool(自定义工具) | 👀 review | 28/100 | 2(src 2) | bundle |
 | dsh-lark(飞书通道) | 👀 review | 28/100 | 2(src 2) | bundle |
-| dsh-vision-toolkit(视觉) | 👀 review | 24/100 | 3(src 3) | bundle |
+| deepseek-harness-desktop(Tauri 桌面端) | 👀 review | 23/100 | 2(src 2) | 非 bundle |
 | working-activity(活动行) | 👀 review | 20/100 | 1(src 1) | 非 bundle |
+| dsh-kun-like-pet(坤坤桌宠) | 👀 review | 20/100 | 1(src 1) | 非 bundle |
+| DSH-Transparent-UI(玻璃质感皮肤) | 👀 review | 20/100 | 1(src 1) | 非 bundle |
 | dsh-web-ui(UI 合集) | 👀 review | 20/100 | 1(src 1) | 非 bundle |
 | dsh-memory-evolve(记忆) | ✅ safe | 16/100 | 2(src 2) | bundle |
 | dsh-remote(SSH 反向隧道) | ✅ safe | 16/100 | 2(src 2) | bundle |
+| modlens(视觉) | ✅ safe | 16/100 | 2(src 2) | bundle |
+| dsh-vision-toolkit(视觉) | ✅ safe | 8/100 | 1(src 1) | bundle |
 | dsh-harness-mcp-server(MCP 服务) | ✅ safe | 8/100 | 1(src 1) | 非 bundle |
+| deepseek-harness-skin(换肤系统) | ✅ safe | 8/100 | 1(src 1) | 非 bundle |
+| hellodigua__dsh-emoji | ✅ safe | 8/100 | 1(src 1) | bundle |
+| distill(对话蒸馏) | ✅ safe | 8/100 | 1(src 1) | bundle |
 | dsh-ads(整活) | ✅ safe | 8/100 | 1(src 1) | bundle |
 | dsh-agent-teams(Agent 团队) | ✅ safe | 8/100 | 1(src 1) | bundle |
+| oil-oil/dsh-vision(视觉) | ✅ safe | 8/100 | 1(src 1) | bundle |
+| dsh-at-file(@ 文件引用) | ✅ safe | 8/100 | 1(src 1) | bundle |
+| dsh-mnemon(Mnemon 记忆) | ✅ safe | 8/100 | 1(src 1) | bundle |
+| dsh-pet(桌宠) | ✅ safe | 8/100 | 1(src 1) | 非 bundle |
 | dsh-deep-whale(皮肤) | ✅ safe | 8/100 | 1(src 1) | 非 bundle |
 | dsh-notifier(8 渠道通知网关) | ✅ safe | 8/100 | 1(src 1) | bundle |
 | dsh-automation(定时任务) | ✅ safe | 8/100 | 1(src 1) | bundle |
-| dsh-im-gateway(IM 聚合网关) | ✅ safe | 8/100 | 1(src 1) | bundle |
+| dshcode(Electron 桌面端) | ✅ safe | 8/100 | 1(src 1) | 非 bundle |
+| dsh-noema(长期记忆) | ✅ safe | 8/100 | 1(src 1) | bundle |
+| dsh-toolkit(确定性工具集) | ✅ safe | 0/100 | 0(src 0) | bundle |
 | dsh-im(8 渠道 IM 桥) | ✅ safe | 0/100 | 0(src 0) | bundle |
+| dsh-vision-router(视觉路由) | ✅ safe | 0/100 | 0(src 0) | bundle |
+| dsh-im-gateway(IM 聚合网关) | ✅ safe | 0/100 | 0(src 0) | bundle |
 
 ## 主要命中明细
 
 ### dsh-vision-toolkit(视觉)
 
-- 裁决:👀 review · 24/100
-- 命中 3 条(source 3)
+- 裁决:✅ safe · 8/100
+- 命中 1 条(source 1)
 - 无 critical/high 级 source 命中
 
 ### ax-feishu-bridge(飞书桥)
@@ -86,8 +103,8 @@
 
 ### dsh-market(插件市场)
 
-- 裁决:🚨 dangerous · 100/100
-- 命中 12 条(source 12)
+- 裁决:👀 review · 44/100
+- 命中 4 条(source 4)
 - critical/high 命中:
   - `SEN-MAN-006` dshmarket:1 — 插件入口无效(缺少 name 或 apply 导出):dshmarket
 
@@ -97,10 +114,55 @@
 - 命中 2 条(source 2)
 - 无 critical/high 级 source 命中
 
+### deepseek-harness-studio(零代码桌面端)
+
+- 裁决:👀 review · 31/100
+- 命中 3 条(source 3)
+- critical/high 命中:
+  - `SEN-MAN-002` package.json:1 — 不是 DSH bundle(缺少 dsh.bundle 声明)
+
+### deepseek-harness-desktop(Tauri 桌面端)
+
+- 裁决:👀 review · 23/100
+- 命中 2 条(source 2)
+- critical/high 命中:
+  - `SEN-MAN-002` package.json:1 — 不是 DSH bundle(缺少 dsh.bundle 声明)
+
+### deepseek-harness-skin(换肤系统)
+
+- 裁决:✅ safe · 8/100
+- 命中 1 条(source 1)
+- 无 critical/high 级 source 命中
+
+### hellodigua__dsh-emoji
+
+- 裁决:✅ safe · 8/100
+- 命中 1 条(source 1)
+- 无 critical/high 级 source 命中
+
+### lhh010__dsh-minigames
+
+- 裁决:👀 review · 40/100
+- 命中 5 条(source 5)
+- 无 critical/high 级 source 命中
+
 ### modlens(视觉)
 
-- 裁决:⚠️ risky · 64/100
-- 命中 8 条(source 8)
+- 裁决:✅ safe · 16/100
+- 命中 2 条(source 2)
+- 无 critical/high 级 source 命中
+
+### dsh-kun-like-pet(坤坤桌宠)
+
+- 裁决:👀 review · 20/100
+- 命中 1 条(source 1)
+- critical/high 命中:
+  - `SEN-MAN-002` package.json:1 — 不是 DSH bundle(缺少 dsh.bundle 声明)
+
+### distill(对话蒸馏)
+
+- 裁决:✅ safe · 8/100
+- 命中 1 条(source 1)
 - 无 critical/high 级 source 命中
 
 ### dsh-ads(整活)
@@ -115,6 +177,18 @@
 - 命中 1 条(source 1)
 - 无 critical/high 级 source 命中
 
+### oil-oil/dsh-vision(视觉)
+
+- 裁决:✅ safe · 8/100
+- 命中 1 条(source 1)
+- 无 critical/high 级 source 命中
+
+### dsh-at-file(@ 文件引用)
+
+- 裁决:✅ safe · 8/100
+- 命中 1 条(source 1)
+- 无 critical/high 级 source 命中
+
 ### DSH-better-sidebar(侧边栏)
 
 - 裁决:👀 review · 44/100
@@ -122,12 +196,37 @@
 - critical/high 命中:
   - `SEN-MAN-006` dsh-better-sidebar:1 — 插件入口无效(缺少 name 或 apply 导出):dsh-better-sidebar
 
+### dsh-custom-tool(自定义工具)
+
+- 裁决:👀 review · 28/100
+- 命中 2 条(source 2)
+- critical/high 命中:
+  - `SEN-EXEC-003` lib__index.js:587 — 动态代码执行(eval / Function / vm / 编译钩子)
+
 ### dsh-lark(飞书通道)
 
 - 裁决:👀 review · 28/100
 - 命中 2 条(source 2)
 - critical/high 命中:
   - `SEN-MAN-006` dsh-lark-channel:1 — 插件入口无效(缺少 name 或 apply 导出):dsh-lark-channel
+
+### dsh-mnemon(Mnemon 记忆)
+
+- 裁决:✅ safe · 8/100
+- 命中 1 条(source 1)
+- 无 critical/high 级 source 命中
+
+### dsh-toolkit(确定性工具集)
+
+- 裁决:✅ safe · 0/100
+- 命中 0 条(source 0)
+- 无 critical/high 级 source 命中
+
+### dsh-pet(桌宠)
+
+- 裁决:✅ safe · 8/100
+- 命中 1 条(source 1)
+- 无 critical/high 级 source 命中
 
 ### dsh-deep-whale(皮肤)
 
@@ -157,11 +256,30 @@
 
 ### whale-girl(桌宠)
 
-- 裁决:👀 review · 48/100
-- 命中 6 条(source 6)
+- 裁决:👀 review · 40/100
+- 命中 5 条(source 5)
 - 无 critical/high 级 source 命中
 
+### dshcode(Electron 桌面端)
+
+- 裁决:✅ safe · 8/100
+- 命中 1 条(source 1)
+- 无 critical/high 级 source 命中
+
+### DSH-Transparent-UI(玻璃质感皮肤)
+
+- 裁决:👀 review · 20/100
+- 命中 1 条(source 1)
+- critical/high 命中:
+  - `SEN-MAN-002` package.json:1 — 不是 DSH bundle(缺少 dsh.bundle 声明)
+
 ### dsh-im(8 渠道 IM 桥)
+
+- 裁决:✅ safe · 0/100
+- 命中 0 条(source 0)
+- 无 critical/high 级 source 命中
+
+### dsh-vision-router(视觉路由)
 
 - 裁决:✅ safe · 0/100
 - 命中 0 条(source 0)
@@ -175,6 +293,12 @@
   - `SEN-MAN-002` package.json:1 — 不是 DSH bundle(缺少 dsh.bundle 声明)
 
 ### dsh-im-gateway(IM 聚合网关)
+
+- 裁决:✅ safe · 0/100
+- 命中 0 条(source 0)
+- 无 critical/high 级 source 命中
+
+### dsh-noema(长期记忆)
 
 - 裁决:✅ safe · 8/100
 - 命中 1 条(source 1)

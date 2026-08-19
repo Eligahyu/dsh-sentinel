@@ -35,6 +35,21 @@ const REPO_LABELS = {
   'Chinesezjc__dsh-interconnect': 'dsh-interconnect(跨实例转发)',
   'THEWOLFWALKER__dsh-notifier': 'dsh-notifier(8 渠道通知网关)',
   'titanwings__dsh-automation': 'dsh-automation(定时任务)',
+  'hairyf__deepseek-harness-desktop': 'deepseek-harness-desktop(Tauri 桌面端)',
+  'fufankeji__deepseek-harness-studio': 'deepseek-harness-studio(零代码桌面端)',
+  'whitelonng__dshcode': 'dshcode(Electron 桌面端)',
+  'ZSeven-W__dsh-noema': 'dsh-noema(长期记忆)',
+  'omdsh-dev__dsh-mnemon': 'dsh-mnemon(Mnemon 记忆)',
+  'LoserFox__distill': 'distill(对话蒸馏)',
+  'ysr666__dsh-vision-router': 'dsh-vision-router(视觉路由)',
+  'oil-oil__dsh-vision': 'oil-oil/dsh-vision(视觉)',
+  'omdsh-dev__dsh-toolkit': 'dsh-toolkit(确定性工具集)',
+  'omdsh-dev__dsh-at-file': 'dsh-at-file(@ 文件引用)',
+  'omdsh-dev__dsh-custom-tool': 'dsh-custom-tool(自定义工具)',
+  'WYH66666666__DSH-Transparent-UI-Plugin': 'DSH-Transparent-UI(玻璃质感皮肤)',
+  'HeiGeAi__deepseek-harness-skin': 'deepseek-harness-skin(换肤系统)',
+  'PC2005-cloud__dsh-pet': 'dsh-pet(桌宠)',
+  'liyupi__dsh-kun-like-pet': 'dsh-kun-like-pet(坤坤桌宠)',
 }
 
 const rows = []
