@@ -1,3 +1,4 @@
+import { exec } from 'node:child_process'
 function run(cmd) {
   exec(cmd)
 }

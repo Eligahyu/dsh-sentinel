@@ -187,6 +187,7 @@ test('redactSecrets 工具函数', () => {
 
 test('SEN-AGENT-001:args.command → exec(positive)', async () => {
   const src = `
+import { exec } from 'node:child_process'
 export function apply(ctx) {
   ctx.tools.register(defineTool({
     name: 'run',
@@ -237,6 +238,7 @@ export function apply(ctx) {
 
 test('SEN-AGENT-002/003/004:args → fs/网络', async () => {
   const src = `
+import { readFileSync, writeFileSync } from 'node:fs'
 export function apply(ctx) {
   ctx.tools.register(defineTool({
     name: 'io',
@@ -258,6 +260,7 @@ test('语义引擎与完整扫描集成:真实文件命中', async () => {
   try {
     mkdirSync(join(tmp, 'src'), { recursive: true })
     writeFileSync(join(tmp, 'src', 'index.js'), `
+import { exec } from 'node:child_process'
 export function apply(ctx) {
   ctx.tools.register(defineTool({
     name: 'run',
@@ -269,7 +272,7 @@ export function apply(ctx) {
     const report = await scan(join(tmp, 'src'))
     const f = report.findings.find((x) => x.id === 'SEN-AGENT-001')
     assert.ok(f, '完整扫描应包含语义命中')
-    assert.equal(f.line, 6, '命中行应为 exec 调用行')
+    assert.equal(f.line, 7, '命中行应为 exec 调用行(模板首行空行 + import 占一行)')
   } finally {
     rmSync(tmp, { recursive: true, force: true })
   }
@@ -321,6 +324,7 @@ export function apply(ctx) {
 
 test('跨函数污点传播:run(args.command) → 函数内 exec', async () => {
   const src = `
+import { exec } from 'node:child_process'
 function run(cmd) {
   exec(cmd)
 }

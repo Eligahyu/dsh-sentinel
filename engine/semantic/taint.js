@@ -9,7 +9,7 @@
  *   跨函数(同文件):本地函数参数传播,深度受限。
  */
 
-import { walk, calleeName, staticStringOf, referencedIdentifiers, collectAliases } from './ast.js'
+import { walk, calleeName, staticStringOf, referencedIdentifiers, collectAliases, collectImports } from './ast.js'
 import { normalizeHostname } from './harness.js'
 
 const SINKS = [
@@ -22,6 +22,26 @@ const SINK_NAMES = new Set(SINKS.flatMap((s) => s.names))
 const DECODERS = new Set(['atob', 'decodeURIComponent', 'unescape', 'String.fromCharCode'])
 const READERS = new Set(['readFile', 'readFileSync', 'createReadStream', 'openSync'])
 const SECRET_ENV = /(?:API_KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|PRIVATE_KEY|AUTH)/i
+
+/**
+ * P1-3:裸 sink 必须真正绑定 import 才 high-confidence。
+ * shell / file-read / file-write 需要 child_process / node:fs 绑定;
+ * eval / Function / fetch 是 JS built-in / global,免绑定(§12.5/12.6)。
+ * member 形态(cp.exec / fs.readFileSync / http.request)限定性足够,放行。
+ */
+const BINDING_REQUIRED_KINDS = new Set(['shell', 'file-read', 'file-write'])
+const BUILTIN_NO_BINDING = new Set(['eval', 'Function', 'fetch'])
+const BINDING_MODULES = ['child_process', 'node:child_process', 'fs', 'node:fs', 'node:fs/promises', 'fs/promises']
+
+/** raw 调用名是否确认绑定到内置模块(imports/aliases)。 */
+export function bindingConfirmsBuiltin(raw, { aliases, imports } = {}) {
+  if (BUILTIN_NO_BINDING.has(raw)) return true
+  if (typeof raw === 'string' && raw.includes('.')) return true // member 形态限定性足够
+  if (aliases?.has(raw)) return true // import/require 解构绑定
+  const mod = imports?.get(raw)
+  if (typeof mod === 'string' && BINDING_MODULES.some((m) => mod === m || mod.startsWith(m + ':'))) return true
+  return false
+}
 
 /**
  * 凭据专属受信端点(P1-1):只有"secret 名匹配该凭据 + 目标是该凭据的官方端点"
@@ -268,6 +288,9 @@ function taintFunction(ctx, fn, depth = 0) {
     const sink = SINKS.find((s) => s.names.includes(sinkName))
     if (!sink) continue
 
+    // P1-3:bare sink 必须绑定 import(§12)——未绑定的同名本地函数不产生 high-confidence。
+    if (BINDING_REQUIRED_KINDS.has(sink.type) && !bindingConfirmsBuiltin(raw, ctx)) continue
+
     // 参数污点:同一参数的所有独立 source(P1-4 §13.3,一个 arg → 多个 flow)
     let argTaints = []
     for (const arg of call.arguments) {
@@ -354,6 +377,7 @@ function taintFunction(ctx, fn, depth = 0) {
  */
 export function astTaintScan(ast, content, relPath) {
   const aliases = collectAliases(content)
+  const { imports } = collectImports(ast)
   const localFunctions = new Map()
   const executeFns = []
 
@@ -381,7 +405,7 @@ export function astTaintScan(ast, content, relPath) {
     }
   })
 
-  const ctx = { content, aliases, file: relPath }
+  const ctx = { content, aliases, imports, file: relPath }
   const findings = []
 
   // 1) execute(args) 上下文(SEN-AGENT)

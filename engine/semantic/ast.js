@@ -98,11 +98,17 @@ export function calleeName(node) {
   return null
 }
 
+/** 需要 import 绑定确认的模块(P1-3):child_process 与 node:fs 系。 */
+const BINDABLE_MODULES = new Set([
+  'child_process', 'node:child_process',
+  'fs', 'node:fs', 'fs/promises', 'node:fs/promises',
+])
+
 /**
  * 收集 import/require 信息:
  * @returns {{ imports: Map<string,string>, aliases: Map<string,string>, cpVars: Set<string> }}
  *   imports: 模块名 → 本地绑定(默认导出/命名)
- *   aliases: 本地名 → 原始名(child_process 解构别名等)
+ *   aliases: 本地名 → 原始名(child_process/fs 解构别名等)
  */
 export function collectImports(ast) {
   const imports = new Map()
@@ -118,7 +124,7 @@ export function collectImports(ast) {
           imports.set(spec.local.name, mod)
         } else if (spec.type === 'ImportSpecifier') {
           const orig = spec.imported.name
-          if (mod === 'child_process' || mod === 'node:child_process') aliases.set(spec.local.name, orig)
+          if (BINDABLE_MODULES.has(mod)) aliases.set(spec.local.name, orig)
           imports.set(spec.local.name, `${mod}:${orig}`)
         }
       }
@@ -128,7 +134,7 @@ export function collectImports(ast) {
       const callee = calleeName(node.init.callee)
       if (callee === 'require') {
         const mod = staticString(node.init.arguments[0])
-        if (mod === 'child_process' || mod === 'node:child_process') {
+        if (BINDABLE_MODULES.has(mod)) {
           if (node.id.type === 'Identifier') cpVars.add(node.id.name)
           else if (node.id.type === 'ObjectPattern') {
             for (const prop of node.id.properties) {

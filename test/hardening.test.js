@@ -498,3 +498,98 @@ test('同一行两个同规则不同 source 的 flow 不折叠(report 去重键)
   assert.ok(taintFindings.some((f) => f.source?.name === 'process.env.A'))
   assert.ok(taintFindings.some((f) => f.source?.name === 'process.env.B'))
 })
+
+// ---- P1-3: bare sink 必须真正绑定 import ----
+
+test('bare sink 未绑定:本地同名函数不产生 SEN-AGENT-001(§12.3)', async () => {
+  const { semanticScan } = await import('../engine/semantic/index.js')
+  const src = `
+function exec(x) { return x }
+export function apply(ctx) {
+  ctx.tools.register(defineTool({
+    name: 'x',
+    async execute(args) {
+      exec(args.command)
+    },
+  }))
+}`
+  const findings = semanticScan(src, 'a.js')
+  assert.equal(findings.some((f) => f.ruleId === 'SEN-AGENT-001'), false, '未绑定的裸 exec 不得 high-confidence')
+})
+
+test('bare sink 已绑定:import { exec } from node:child_process → SEN-AGENT-001(§12.2)', async () => {
+  const { semanticScan } = await import('../engine/semantic/index.js')
+  const src = `
+import { exec } from 'node:child_process'
+export function apply(ctx) {
+  ctx.tools.register(defineTool({
+    name: 'x',
+    async execute(args) {
+      exec(args.command)
+    },
+  }))
+}`
+  const findings = semanticScan(src, 'a.js')
+  const hit = findings.find((f) => f.ruleId === 'SEN-AGENT-001')
+  assert.ok(hit, '绑定 child_process 的裸 exec 应命中')
+  assert.equal(hit.sink.callee, 'exec')
+})
+
+test('bare sink 已绑定:const { exec } = require(child_process) → SEN-AGENT-001', async () => {
+  const { semanticScan } = await import('../engine/semantic/index.js')
+  const src = `
+const { exec } = require('child_process')
+export function apply(ctx) {
+  ctx.tools.register(defineTool({
+    name: 'x',
+    async execute(args) {
+      exec(args.command)
+    },
+  }))
+}`
+  const findings = semanticScan(src, 'a.js')
+  assert.ok(findings.some((f) => f.ruleId === 'SEN-AGENT-001'), 'require 解构绑定应命中')
+})
+
+test('bare readFile 绑定 fs 才命中;本地同名函数不命中', async () => {
+  const { semanticScan } = await import('../engine/semantic/index.js')
+  const local = `
+function readFile(x) { return x }
+export function apply(ctx) {
+  ctx.tools.register(defineTool({
+    name: 'x',
+    async execute(args) {
+      readFile(args.path)
+    },
+  }))
+}`
+  assert.equal(semanticScan(local, 'a.js').some((f) => f.ruleId === 'SEN-AGENT-002'), false)
+  const bound = `
+import { readFile } from 'node:fs'
+export function apply(ctx) {
+  ctx.tools.register(defineTool({
+    name: 'x',
+    async execute(args) {
+      readFile(args.path)
+    },
+  }))
+}`
+  assert.ok(semanticScan(bound, 'a.js').some((f) => f.ruleId === 'SEN-AGENT-002'), '绑定 fs 的 readFile 应命中')
+})
+
+test('eval/fetch 免绑定(§12.5/12.6)', async () => {
+  const { semanticScan } = await import('../engine/semantic/index.js')
+  const src = `
+export function apply(ctx) {
+  ctx.tools.register(defineTool({
+    name: 'x',
+    async execute(args) {
+      eval(args.code)
+      fetch(args.url)
+    },
+  }))
+}`
+  const findings = semanticScan(src, 'a.js')
+  assert.ok(findings.some((f) => f.ruleId === 'SEN-AGENT-001' && f.sink.callee === 'eval'), 'eval 免绑定')
+  assert.ok(findings.some((f) => f.ruleId === 'SEN-AGENT-004' && f.sink.callee === 'fetch'), 'fetch 免绑定')
+})
