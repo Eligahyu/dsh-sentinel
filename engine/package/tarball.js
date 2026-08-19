@@ -62,8 +62,9 @@ export async function downloadTarball(tarballUrl, integrity, opts = {}) {
 
 /**
  * 把 tarball 解包到隔离目录(quarantine)。绝不执行包内任何脚本。
- * 任何成功 / 失败 / 异常路径都必须 finally cleanup(调用方负责)。
- * TarSafetyError(或任何解包异常)时自行清理已创建的 quarantine 目录。
+ * 资源所有权(P0-3):downloadTarball() 创建 tarball,extractTarball() 接管其生命周期——
+ * 成功 cleanup / TarSafetyError / 任意解包异常,都由本函数删除 tarball 与 quarantine。
+ * cleanup 幂等(重复调用安全)。
  * @returns {Promise<{dir: string, cleanup: () => void, entries: number, unpackedBytes: number}>}
  */
 export async function extractTarball(tarballPath) {
@@ -74,15 +75,28 @@ export async function extractTarball(tarballPath) {
   try {
     stats = extractTarballSafe(tarballPath, extractDir)
   } catch (error) {
-    rmSync(base, { recursive: true, force: true }) // P0-6:失败路径不留 quarantine
+    // 任意解包失败(TarSafetyError / FS error / invalid gzip):quarantine + tgz 都删
+    rmSync(base, { recursive: true, force: true })
+    rmSync(tarballPath, { force: true })
     throw error
   }
   // npm tarball 内容在 package/ 下;若缺则用整个解包目录。
   const pkgDir = join(extractDir, 'package')
-  const dir = readdirSync(extractDir).length === 1 && readdirSync(extractDir)[0] === 'package'
-    ? pkgDir
-    : extractDir
-  const cleanup = () => rmSync(base, { recursive: true, force: true })
+  let dir
+  try {
+    dir = readdirSync(extractDir).length === 1 && readdirSync(extractDir)[0] === 'package'
+      ? pkgDir
+      : extractDir
+  } catch {
+    dir = extractDir
+  }
+  let cleaned = false
+  const cleanup = () => {
+    if (cleaned) return
+    cleaned = true
+    rmSync(base, { recursive: true, force: true })
+    rmSync(tarballPath, { force: true })
+  }
   return { dir, cleanup, entries: stats.entries, unpackedBytes: stats.unpackedBytes }
 }
 

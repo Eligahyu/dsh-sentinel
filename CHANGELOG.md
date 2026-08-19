@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.4.2 (2026-08) — Final 3 Blockers Fix
+
+按 `dsh-sentinel-v0.4-final-3-blockers-fix.md` 完成最后 3 个发布阻塞项修复:
+
+### Fixed
+- **Action 依赖安装边界(P0-1)**:npm ci 定向 `--prefix ${{ github.action_path }}` 并强制
+  `--ignore-scripts`;新增 Action 字符串级测试(lockfile 检查路径 / --prefix / --ignore-scripts /
+  无 curl.exe / CLI 路径)
+- **traversal 完整度(P0-2)**:traversalFailures 并入 `coverageSkips`(report 可见);新增
+  `scanCoverage.binarySampleFailures`(binary-sample 阶段失败独立计数);walk/stat 失败测试
+- **tarball 资源所有权(P0-3)**:`extractTarball()` 接管 tarball 生命周期——成功 cleanup /
+  TarSafetyError / 任意解包异常都删除 quarantine + 传入 tgz;cleanup 幂等
+
+### Changed
+- 版本 0.4.2(package.json / package-lock / version.js 一致)
+- Final Test 151/151 全绿;Final Benchmark 32 项(edge 16 项 1.000);verify:release EXIT=0
+
 ## 0.4.1 (2026-08) — Release Engineering Final Fix
 
 按 `dsh-sentinel-v0.4-release-engineering-final-fix.md` 完成发布工程闭环(0.4.0 为 RC,0.4.1 为最终 Release):

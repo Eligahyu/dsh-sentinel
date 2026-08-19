@@ -733,7 +733,13 @@ export async function scanTree(root, opts = {}) {
       analysisFailures.push({ path: bin.rel, stage: 'hash', reason: e.code ?? e.message })
       continue
     }
-    const { head } = sampleHeadTail(bin.abs, bin.size)
+    let head
+    try {
+      head = sampleHeadTail(bin.abs, bin.size).head
+    } catch (e) {
+      analysisFailures.push({ path: bin.rel, stage: 'binary-sample', reason: e.code ?? e.message })
+      continue
+    }
     const audit = auditBinarySample(head, bin.rel)
     const meta = { ...bin, hash, ...audit }
     const fs = binaryFindingsFor(meta)
@@ -759,6 +765,7 @@ export async function scanTree(root, opts = {}) {
   largest.sort((a, b) => b.bytes - a.bytes)
   const readFailures = analysisFailures.filter((f) => f.stage === 'read').length
   const hashFailures = analysisFailures.filter((f) => f.stage === 'hash').length
+  const binarySampleFailures = analysisFailures.filter((f) => f.stage === 'binary-sample').length
   return {
     findings: collector.findings(),
     allStats: collector.stats(),
@@ -777,10 +784,11 @@ export async function scanTree(root, opts = {}) {
       binarySkippedFiles: binarySkippedCount,
       readFailures,
       hashFailures,
+      binarySampleFailures,
       analysisFailures: analysisFailures.length,
       traversalFailures: traversalFailures.length,
     },
-    coverageSkips: analysisFailures,
+    coverageSkips: [...analysisFailures, ...traversalFailures],
     traversalFailures,
     filesSkipped: skipped,
     hardSkipped: hardSkippedMeta,
