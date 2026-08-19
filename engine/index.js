@@ -151,11 +151,16 @@ export async function scanProfile(profile = 'web', opts = {}) {
   const modulesDir = join(profileDir, 'node_modules')
   const maxPlugins = opts.maxPlugins ?? 12
   const perPluginMaxFiles = Math.max(200, Math.floor((opts.maxFiles ?? 3000) / Math.max(1, maxPlugins)))
+  // 受信 scope:默认 @deepseek-ai;--include-builtins 时也全量扫描。
+  const trustedScopes = opts.trustedScopes ?? ['@deepseek-ai']
+  const includeBuiltins = opts.includeBuiltins === true
+  const isTrustedScope = (name) => trustedScopes.some((s) => name === s || name.startsWith(s + '/'))
 
   const findings = []
   let findingsTotal = 0
   const pluginsScanned = []
   const pluginsSkipped = []
+  const plugins = [] // §9.2: {name, version, direct, dependencies, findings}
   let filesAnalyzed = 0
   let filesDiscovered = 0
   let scanComplete = true
@@ -171,6 +176,10 @@ export async function scanProfile(profile = 'web', opts = {}) {
     return pkg.dsh?.profile ?? null
   }
   const profileManifest = readProfileManifest()
+  const profilePkg = readJsonSafe(join(profileDir, 'package.json'))
+  const directDeps = new Set(Object.keys(profilePkg?.dependencies ?? {}))
+  // 每个插件的直接依赖名(用于 transitive 判定)
+  const depOf = new Map()
 
   const absorb = (result, prefix) => {
     scanned += 1
@@ -189,6 +198,14 @@ export async function scanProfile(profile = 'web', opts = {}) {
     coverage.largeFiles += result.scanCoverage.largeFiles
     for (const [k, v] of Object.entries(result.languages)) languages[k] = (languages[k] ?? 0) + v
     largestFiles.push(...result.largestFiles.map((f) => ({ file: `${prefix}/${f.file}`, bytes: f.bytes })))
+    plugins.push({
+      name: result.name,
+      version: result.version,
+      direct: directDeps.has(result.name),
+      dependencies: result.dependencies,
+      findings: result.findings.length,
+    })
+    depOf.set(result.name, new Set(Object.keys(result.dependenciesOf ?? {})))
   }
 
   let scanned = 0
@@ -208,8 +225,10 @@ export async function scanProfile(profile = 'web', opts = {}) {
       }
       if (entry.name.startsWith('@') && entry.isDirectory()) {
         if (entry.name === '@deepseek-ai') {
-          pluginsSkipped.push('@deepseek-ai/*')
-          continue
+          if (!includeBuiltins) {
+            pluginsSkipped.push('@deepseek-ai/* (trusted)')
+            continue
+          }
         }
         const scopeDir = join(modulesDir, entry.name)
         const inner = readdirSync(scopeDir, { withFileTypes: true })
@@ -228,8 +247,8 @@ export async function scanProfile(profile = 'web', opts = {}) {
         }
         continue
       }
-      if (entry.name.startsWith('@deepseek-ai')) {
-        pluginsSkipped.push(entry.name)
+      if (isTrustedScope(entry.name) && !includeBuiltins) {
+        pluginsSkipped.push(`${entry.name} (trusted)`)
         continue
       }
       const pkgDir = join(modulesDir, entry.name)
@@ -240,6 +259,12 @@ export async function scanProfile(profile = 'web', opts = {}) {
       }
       if (result !== null) absorb(result, `node_modules/${entry.name}`)
     }
+  }
+
+  // direct/transitive 标注:直接依赖之外、且被其他已扫插件依赖的视为 transitive。
+  for (const p of plugins) {
+    if (p.direct) continue
+    p.transitive = [...depOf.values()].some((deps) => deps.has(p.name))
   }
 
   largestFiles.sort((a, b) => b.bytes - a.bytes)
@@ -267,6 +292,7 @@ export async function scanProfile(profile = 'web', opts = {}) {
       largestFiles: largestFiles.slice(0, 5),
       pluginsScanned,
       pluginsSkipped,
+      plugins,
       scanMs: Date.now() - started,
     },
     opts.maxFindings,
@@ -306,6 +332,9 @@ function scanOnePlugin(pkgDir, maxFiles, opts) {
   ]
   return {
     name,
+    version: String(pkg.version ?? ''),
+    dependencies: Object.keys(pkg.dependencies ?? {}).length,
+    dependenciesOf: pkg.dependencies ?? {},
     findings: tagged,
     findingsTotal: tree.findingsTotal + bundle.findings.length,
     filesAnalyzed: tree.filesAnalyzed,

@@ -177,6 +177,7 @@ export function buildReport(parts, maxFindings = 300) {
       name: parts.name ?? '',
       pluginsScanned: parts.pluginsScanned ?? [],
       pluginsSkipped: parts.pluginsSkipped ?? [],
+      plugins: parts.plugins ?? [],
     },
     findings: capped,
     stats: {

@@ -94,7 +94,7 @@ function formatText(report, out) {
 export async function main(argv, io = { stdout: process.stdout, stderr: process.stderr }) {
   const { stdout, stderr } = io
   const args = [...argv]
-  const opts = { json: false, out: null, maxFiles: undefined, maxPlugins: undefined }
+  const opts = { json: false, out: null, maxFiles: undefined, maxPlugins: undefined, configPath: null, includeBuiltins: false }
   const positional = []
   for (let i = 0; i < args.length; i += 1) {
     const a = args[i]
@@ -103,6 +103,8 @@ export async function main(argv, io = { stdout: process.stdout, stderr: process.
       case '--out': opts.out = args[++i]; break
       case '--max-files': opts.maxFiles = Number(args[++i]); break
       case '--max-plugins': opts.maxPlugins = Number(args[++i]); break
+      case '--config': opts.configPath = args[++i]; break
+      case '--include-builtins': opts.includeBuiltins = true; break
       case '--rules': {
         for (const r of RULES) {
           stdout.write(`${r.id} [${r.severity.padEnd(8)}] ${r.category.padEnd(12)} ${r.name} — ${r.message}\n`)
@@ -133,14 +135,27 @@ export async function main(argv, io = { stdout: process.stdout, stderr: process.
   }
 
   const run = (async () => {
+    // 配置:默认 ← sentinel.config.json ← CLI 覆盖
+    const { loadConfig, mergeOverrides } = await import('../engine/config.js')
+    const { config } = loadConfig({ configPath: opts.configPath })
+    const effective = mergeOverrides(config, {
+      mode: opts.mode,
+      maxFiles: opts.maxFiles,
+      includeBuiltins: opts.includeBuiltins ? true : undefined,
+    })
     if (opts.profile !== undefined) {
-      return scanProfile(opts.profile, { maxPlugins: opts.maxPlugins, maxFiles: opts.maxFiles })
+      return scanProfile(opts.profile, {
+        maxPlugins: opts.maxPlugins,
+        maxFiles: effective.maxFiles,
+        includeBuiltins: effective.includeBuiltins,
+        trustedScopes: config.trustedScopes,
+      })
     }
     if (positional.length === 0) {
       usage(stderr)
       return null
     }
-    return scan(positional[0], { maxFiles: opts.maxFiles, mode: opts.mode })
+    return scan(positional[0], { maxFiles: effective.maxFiles, mode: effective.mode })
   })()
 
   try {
