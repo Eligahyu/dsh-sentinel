@@ -1,0 +1,13 @@
+[
+  { "file": "malicious/pos1-tool-shell.js", "expects": ["SEN-AGENT-001"] },
+  { "file": "malicious/pos2-eval-atob.js", "expects": ["SEN-EXEC-004", "SEN-TAINT-003"] },
+  { "file": "malicious/pos3-secret-to-network.js", "expects": ["SEN-TAINT-001", "SEN-CRED-002", "SEN-NET-001"] },
+  { "file": "malicious/pkg4/package.json", "expects": ["SEN-SUPPLY-001", "SEN-MAN-002", "SEN-MAN-007", "SEN-MAN-008"] },
+  { "file": "malicious/pkg5/package.json", "expects": ["SEN-MAN-009", "SEN-MAN-007", "SEN-MAN-008"] },
+  { "file": "malicious/pos6-decode-exec.js", "expects": ["SEN-TAINT-003", "SEN-EXEC-003"] },
+  { "file": "safe/safe1-spawn-array.js", "expects": [] },
+  { "file": "safe/safe2-trusted-api.js", "expects": ["SEN-CRED-002", "SEN-NET-001"] },
+  { "file": "safe/safe3-clean-tool.js", "expects": [] },
+  { "file": "evasions/ev1-alias.js", "expects": ["SEN-AGENT-001"] },
+  { "file": "evasions/ev2-computed-prop.js", "expects": ["SEN-AGENT-001"] }
+]

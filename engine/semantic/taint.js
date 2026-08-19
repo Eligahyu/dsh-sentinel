@@ -22,6 +22,9 @@ const DECODERS = new Set(['atob', 'decodeURIComponent', 'unescape', 'String.from
 const READERS = new Set(['readFile', 'readFileSync', 'createReadStream', 'openSync'])
 const SECRET_ENV = /(?:API_KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|PRIVATE_KEY|AUTH)/i
 
+/** 受信端点:env → 网络 在这些域上属于正常 API 客户端行为,不做外传判定。 */
+const TRUSTED_HOSTS = /(?:api|platform)\.(?:deepseek\.com|openai\.com|anthropic\.com)|(?:api\.)?github\.com|googleapis\.com|azure\.com|aws\.com|api\.x\.com|twitter\.com/i
+
 const MESSAGES = {
   'SEN-AGENT-001': '模型可控输入进入 shell 执行(execute(args) → exec/spawn)',
   'SEN-AGENT-002': '模型可控输入进入文件读取(execute(args) → readFile)',
@@ -193,7 +196,11 @@ function taintFunction(ctx, fn, depth = 0) {
     let ruleId = sink.ruleId
     let severity = sink.severity
     let category = 'agent'
-    if (tag === 'env' && sink.type === 'network') { ruleId = 'SEN-TAINT-001'; severity = 'critical'; category = 'taint' }
+    if (tag === 'env' && sink.type === 'network') {
+      const lineText = (content.split('\n')[lineSnippet(content, call).line - 1] ?? '')
+      if (TRUSTED_HOSTS.test(lineText)) continue // 受信 API 端点的凭据使用是正常行为
+      ruleId = 'SEN-TAINT-001'; severity = 'critical'; category = 'taint'
+    }
     else if ((tag === 'read' || tag === 'memory') && sink.type === 'network') { ruleId = 'SEN-TAINT-002'; severity = 'high'; category = 'taint' }
     else if (tag === 'decode' && sink.type === 'shell') { ruleId = 'SEN-TAINT-003'; severity = 'critical'; category = 'taint' }
     pushFinding(ruleId, severity, category, sourceName, sinkName, sink.type, call)

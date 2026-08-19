@@ -24,7 +24,7 @@ export function auditVerdictFor(score) {
 /**
  * 可复用 API:安装前审计任意 npm 包(§5.3 预留的 dsh plugin add 钩子接口)。
  * @param {string} spec - 'name' 或 'name@version'
- * @param {object} opts - {maxFiles, maxFindings}
+ * @param {object} opts - {maxFiles, maxFindings, advisories, provenance}
  * @returns {Promise<object>} {report, audit: {package, version, verdict, tarballSha256, integrityOk, ...}}
  */
 export async function auditPackageBeforeInstall(spec, opts = {}) {
@@ -43,6 +43,7 @@ export async function auditPackageBeforeInstall(spec, opts = {}) {
       dependencyCount: Object.keys(meta.dependencies ?? {}).length,
       installScripts: Object.keys(meta.scripts ?? {}).filter((s) =>
         ['preinstall', 'install', 'postinstall', 'prepare', 'prepublish'].includes(s)),
+      ...(opts.provenance ? { provenance: meta.attestations } : {}),
     }
     report.supplyChain = {
       package: meta.name,
@@ -51,6 +52,12 @@ export async function auditPackageBeforeInstall(spec, opts = {}) {
       integrity: meta.dist.integrity,
       dependencyCount: audit.dependencyCount,
       installScripts: audit.installScripts,
+      ...(opts.provenance ? { provenance: meta.attestations } : {}),
+    }
+    // OSV 漏洞查询(默认关闭;仅上传包名+版本)
+    if (opts.advisories) {
+      const { queryOsv, attachAdvisories } = await import('../supplychain/osv.js')
+      attachAdvisories(report, await queryOsv(meta.name, meta.version))
     }
     return { report, audit }
   } finally {
@@ -65,4 +72,13 @@ export async function auditPackageBeforeInstall(spec, opts = {}) {
 export async function auditNpmSpec(spec, opts = {}) {
   const clean = spec.startsWith('npm:') ? spec.slice(4) : spec
   return auditPackageBeforeInstall(clean, opts)
+}
+
+/** 仅获取并解包(供源码-发布包 diff 使用),不执行完整审计。 */
+export async function acquirePackageDir(spec) {
+  const clean = spec.startsWith('npm:') ? spec.slice(4) : spec
+  const meta = await acquireNpmPackage(clean)
+  const dl = await downloadTarball(meta.dist.tarball, meta.dist.integrity)
+  const { dir, cleanup } = await extractTarball(dl.tarballPath)
+  return { dir, cleanup, meta, dl }
 }

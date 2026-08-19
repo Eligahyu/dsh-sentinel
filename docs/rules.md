@@ -1,6 +1,6 @@
 # 规则目录 / Rule Catalog
 
-共 36 条启发式规则。启发式 ≠ 判决:命中只表示"需要人工复核",不代表插件一定恶意。
+共 42 条启发式规则。启发式 ≠ 判决:命中只表示"需要人工复核",不代表插件一定恶意。
 
 | ID | 严重度(权重) | 类别 | 规则 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -36,10 +36,16 @@
 | `SEN-MAN-007` | 🟢 low(3 分) | hygiene | **license-missing** | package.json 未声明 license,安装与再分发存在法律风险。 |
 | `SEN-MAN-008` | 🟢 low(3 分) | hygiene | **description-missing** | package.json 未声明 description。 |
 | `SEN-MAN-009` | 🔴 critical(45 分) | manifest | **manifest-path-escape** | package.json 的 dsh.bundle.patch、main、exports 或 cordis.patch.yml 的入口名指向扫描根目录之外(如 ../../Users/xxx/.ssh)。攻击者可借此让扫描器读取目标目录之外的文件。 |
+| `SEN-SUPPLY-001` | 🟠 high(20 分) | supplychain | **remote-dependency-source** | package.json 依赖指向非标准来源:git+http(明文)、http:// tarball、file: 本地路径或 workspace: 引用。供应链攻击常通过劫持这类来源投放。 |
 | `SEN-AGENT-001` | 🔴 critical(45 分) | agent | **model-controlled-shell** | defineTool 的 execute(args) 中,模型可控参数(args.*)直接或经变量传播进入 shell 执行器。 |
 | `SEN-AGENT-002` | 🟠 high(20 分) | agent | **model-controlled-file-read** | 模型可控参数进入文件读取调用,若无 workspace containment 则模型可读任意文件。 |
 | `SEN-AGENT-003` | 🟠 high(20 分) | agent | **model-controlled-file-write** | 模型可控参数进入文件写入调用,可写 HOME / 系统目录 / DSH profile / 其他插件目录。 |
 | `SEN-AGENT-004` | 🟠 high(20 分) | agent | **model-controlled-network-target** | 模型可控参数成为网络请求 URL,即 SSRF / 任意出网能力面。 |
+| `SEN-TAINT-001` | 🔴 critical(45 分) | taint | **secret-to-network** | process.env 中的凭据(API key/token/secret)直接或经变量传播进入网络请求。 |
+| `SEN-TAINT-002` | 🟠 high(20 分) | taint | **workspace-to-network** | readFile 等读取的结果(可能是工作区源码/配置)进入网络请求体。 |
+| `SEN-TAINT-003` | 🔴 critical(45 分) | taint | **decode-to-exec-flow** | base64/hex/URI 解码(Buffer.from/atob/fromCharCode 等)的结果进入 eval/Function/exec。 |
+| `SEN-AGENT-005` | 🟡 medium(8 分) | agent | **tool-prompt-poisoning** | defineTool 描述或指令文本含 "ignore previous instructions" / "do not tell the user" 等短语。注意:防御性说明也可能出现同类文字,需结合上下文。 |
+| `SEN-AGENT-006` | 🟡 medium(8 分) | agent | **capability-mismatch** | 工具描述看似普通(天气/问候/换算等),但代码含 exec/fetch/文件读写等敏感能力。 |
 
 权重:critical=50 · high=20 · medium=8 · low=3 · info=0,总分封顶 100。
 

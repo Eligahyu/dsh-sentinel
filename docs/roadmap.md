@@ -45,20 +45,20 @@
 - [x] 压缩产物降权:minified bundle 命中打标并降一级计分(转译器噪声)
 - [x] SECURITY.md、41 项测试(positive/negative/evasion)
 
-### v0.3
-- AST 正式解析(acorn/@babel)+ confidence high
-- Harness 专属:prompt/tool poisoning、SSRF 细化、workspace/memory 外传
-- SARIF 输出 + finding fingerprint + baseline
-- `--fail-on` / `--strict-exit-codes`
-
-### v0.3
-- GitHub Action + 徽章服务
-- 已知恶意模式指纹库(从公开情报同步)
-- 供应链证据链:`dsh plugin add` 前自动扫描并生成"安装审计单"
+### v0.3 ✅(2026-08-19,Phase 2–8 全部完成)
+- [x] **Phase 2 扫描目标模型**:sentinel.config.json;profile 依赖图(direct/transitive);内置包信任策略 + `--include-builtins`
+- [x] **Phase 3 安装前扫描**:npm tarball 隔离获取/完整性校验/不执行脚本;`audit-install` / `npm:<pkg>` / `sentinel_audit_package`;ALLOW/REVIEW/BLOCK-RECOMMENDED
+- [x] **Phase 4 AST**:acorn 解析;调用识别/计算属性(`cp['ex'+'ec']`)/别名;confidence high
+- [x] **Phase 5 Taint**:SEN-TAINT-001(secret→network)/002(workspace→network)/003(decode→exec);跨函数传播;受信端点豁免
+- [x] **Phase 6 Harness 专属**:SEN-AGENT-005(prompt 投毒)/006(能力不匹配);SSRF 目标细化;containment 提示;记忆/对话外传
+- [x] **Phase 7 CI**:稳定 fingerprint;SARIF 2.1.0;baseline 对比;`--fail-on` 阈值退出码
+- [x] **Phase 8 生态**:OSV(`--advisories`,默认关,仅上传包名+版本);provenance(`--provenance`);源码↔发布包 diff(`dsh-sentinel diff`,`SEN-SUPPLY-003`);HTML 报告;benchmark(precision/recall)
+- [x] Benchmark 结果:**precision 1.000 · recall 1.000 · F1 1.000**(11 项带标注语料)
+- [ ] 已知恶意模式指纹库(需要外部威胁情报源,未实现——作为后续项)
 
 ### v1.0
 - 规则插件化(第三方规则包)
-- 语义级检测(轻量 AST,替代纯正则,显著降误报)
+- GitHub Action(`dsh-sentinel-action`)+ 徽章服务
 - 多生态支持(pi / Claude Code 插件扫描)
 
 ## 🎯 定位红线(决定不做的事)

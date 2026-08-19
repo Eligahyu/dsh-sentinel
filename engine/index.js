@@ -10,7 +10,7 @@
  */
 
 import { statSync, readdirSync, readFileSync, existsSync, realpathSync } from 'node:fs'
-import { join, resolve, dirname, relative } from 'node:path'
+import { join, resolve, dirname, relative, basename } from 'node:path'
 import { homedir } from 'node:os'
 import { scanTree, applyRule, collectFiles, isBuildPath, isMinifiedContent } from './scanner.js'
 import { inspectBundle } from './manifest.js'
@@ -84,6 +84,13 @@ export async function scan(target, opts = {}) {
       findingsTotal += sem.length
       if (minified) for (const f of sem) { f.bundleFile = true; f.analysisMode = 'minified' }
       findings.push(...sem)
+    }
+    // 直接扫描 package.json 时,顺带对其所在目录做完整 manifest 体检。
+    if (basename(abs) === 'package.json') {
+      const bundle = inspectBundle(dirname(abs))
+      findings = [...findings, ...bundle.findings]
+      findingsTotal += bundle.findings.length
+      manifest = bundle.manifest
     }
     filesAnalyzed = 1
     filesDiscovered = 1

@@ -261,6 +261,10 @@ export const RULES = Object.freeze([
         re: /(?:fetch|axios|XMLHttpRequest|sendBeacon|https?\.request)\s*\([^)]{0,120}?["'`][^"'`]{0,120}?=[^"'`]{0,60}(?:api[_-]?key|token|secret|password|authorization)/is,
       },
     ],
+    // 受信 API 端点的凭据携带是正常客户端行为(与语义引擎 TRUSTED_HOSTS 一致)。
+    excludes: [
+      /(?:api|platform)\.(?:deepseek\.com|openai\.com|anthropic\.com)|(?:api\.)?github\.com|googleapis\.com|azure\.com|aws\.com|api\.x\.com/i,
+    ],
   },
   {
     id: 'SEN-EXFIL-003',
@@ -545,6 +549,23 @@ export const RULES = Object.freeze([
     message: 'manifest 路径逃逸扫描根目录(patch / main / exports / 入口名)',
     description: 'package.json 的 dsh.bundle.patch、main、exports 或 cordis.patch.yml 的入口名指向扫描根目录之外(如 ../../Users/xxx/.ssh)。攻击者可借此让扫描器读取目标目录之外的文件。',
     recommendation: '拒绝该包或修复 manifest 路径;所有路径必须解析在包根目录之内。',
+  },
+  {
+    id: 'SEN-SUPPLY-001',
+    name: 'remote-dependency-source',
+    severity: 'high',
+    category: 'supplychain',
+    message: '依赖来源危险(git+http / http tarball / 本地文件 / workspace 逃逸)',
+    description: 'package.json 依赖指向非标准来源:git+http(明文)、http:// tarball、file: 本地路径或 workspace: 引用。供应链攻击常通过劫持这类来源投放。',
+    recommendation: '依赖应来自受信 registry(https);git 依赖应锁定 commit 并使用 https。',
+    filePattern: /package\.json$/i,
+    linePatterns: [
+      { re: /["'][A-Za-z0-9@/._-]+["']\s*:\s*["'](?:git\+http:\/\/|http:\/\/[^"'#]+\.(?:tgz|tar\.gz)|file:|workspace:|\.\.\/)/i },
+    ],
+    // patch/main/exports/files 等键的路径由 SEN-MAN-009 containment 负责,不算依赖来源问题。
+    excludes: [
+      /^\s*"(?:patch|main|exports|files|bin)"\s*:/,
+    ],
   },
 
   // ─────────────────────────── agent(Harness Tool 语义规则,由 semantic 引擎产生)───────────────────────────

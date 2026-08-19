@@ -1,0 +1,9 @@
+{
+  "name": "escape",
+  "version": "0.0.1",
+  "dsh": {
+    "bundle": {
+      "patch": "../../../../etc/passwd"
+    }
+  }
+}

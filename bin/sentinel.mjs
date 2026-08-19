@@ -101,16 +101,18 @@ function formatText(report, out) {
 export async function main(argv, io = { stdout: process.stdout, stderr: process.stderr }) {
   const { stdout, stderr } = io
   const args = [...argv]
-  const opts = { json: false, format: 'text', out: null, maxFiles: undefined, maxPlugins: undefined, configPath: null, includeBuiltins: false, baseline: null, failOn: null }
+  const opts = { json: false, format: 'text', out: null, maxFiles: undefined, maxPlugins: undefined, configPath: null, includeBuiltins: false, baseline: null, failOn: null, advisories: false, provenance: false }
   const positional = []
   for (let i = 0; i < args.length; i += 1) {
     const a = args[i]
     switch (a) {
       case '--json': opts.json = true; opts.format = 'json'; break
+      case '--advisories': opts.advisories = true; break
+      case '--provenance': opts.provenance = true; break
       case '--format': {
         const fmt = args[++i]
-        if (!['json', 'text', 'sarif'].includes(fmt)) {
-          stderr.write(`dsh-sentinel: --format must be json|text|sarif (got ${fmt})\n`)
+        if (!['json', 'text', 'sarif', 'html'].includes(fmt)) {
+          stderr.write(`dsh-sentinel: --format must be json|text|sarif|html (got ${fmt})\n`)
           return 2
         }
         opts.format = fmt
@@ -173,7 +175,12 @@ export async function main(argv, io = { stdout: process.stdout, stderr: process.
     const auditSpec = positional[0] === 'audit-install' ? positional[1] : positional[0]?.startsWith('npm:') ? positional[0] : null
     if (auditSpec) {
       const { auditNpmSpec } = await import('../engine/package/audit.js')
-      return { __audit: await auditNpmSpec(auditSpec, { maxFiles: effective.maxFiles }) }
+      return { __audit: await auditNpmSpec(auditSpec, { maxFiles: effective.maxFiles, advisories: opts.advisories, provenance: opts.provenance }) }
+    }
+    // 源码 ↔ 发布包 diff
+    if (positional[0] === 'diff') {
+      const { diffPackageWithSource } = await import('../engine/package/diff.js')
+      return { __diff: await diffPackageWithSource(positional[1], positional[2]) }
     }
     if (opts.profile !== undefined) {
       return scanProfile(opts.profile, {
@@ -218,13 +225,29 @@ export async function main(argv, io = { stdout: process.stdout, stderr: process.
       }
     }
 
+    if (result.__diff) {
+      const { diff, findings, package: pkgName, version } = result.__diff
+      stdout.write(`\n🔀 SOURCE vs PACKAGE DIFF — ${pkgName}@${version}\n`)
+      stdout.write(`  extra files: ${diff.extraFiles.length} · modified: ${diff.modifiedFiles.length} · unexpected binaries: ${diff.unexpectedBinaries.length} · script diff: ${diff.scriptDiff.length}\n`)
+      for (const f of findings) {
+        stdout.write(`  ⚠ [${f.severity}] ${f.message}\n`)
+        if (f.detail) stdout.write(`    ${f.detail}\n`)
+      }
+      if (opts.format === 'json') {
+        stdout.write(JSON.stringify({ diff, findings }, null, 2) + '\n')
+      }
+      return findings.length > 0 ? 1 : 0
+    }
+
     if (result.__audit) {
       const { report, audit } = result.__audit
-      const verdictEmoji = { ALLOW: '✅', REVIEW: '👀', 'BLOCK-RECOMMENDED': '🚫' }[audit.verdict] ?? '❓'
-      stdout.write(`\n${verdictEmoji} INSTALL AUDIT: ${audit.verdict} — ${audit.package}@${audit.version}\n`)
-      stdout.write(`  tarball sha256: ${audit.tarballSha256}\n`)
-      stdout.write(`  integrity: ${audit.integrityOk ? 'OK' : `FAIL (${audit.integrityReason ?? 'unknown'})`}\n`)
-      stdout.write(`  dependencies: ${audit.dependencyCount} · install scripts: ${audit.installScripts.join(', ') || 'none'}\n`)
+      if (opts.format !== 'json') {
+        const verdictEmoji = { ALLOW: '✅', REVIEW: '👀', 'BLOCK-RECOMMENDED': '🚫' }[audit.verdict] ?? '❓'
+        stdout.write(`\n${verdictEmoji} INSTALL AUDIT: ${audit.verdict} — ${audit.package}@${audit.version}\n`)
+        stdout.write(`  tarball sha256: ${audit.tarballSha256}\n`)
+        stdout.write(`  integrity: ${audit.integrityOk ? 'OK' : `FAIL (${audit.integrityReason ?? 'unknown'})`}\n`)
+        stdout.write(`  dependencies: ${audit.dependencyCount} · install scripts: ${audit.installScripts.join(', ') || 'none'}\n`)
+      }
       if (opts.format === 'json') {
         stdout.write(JSON.stringify(report, null, 2) + '\n')
       } else {
@@ -237,8 +260,18 @@ export async function main(argv, io = { stdout: process.stdout, stderr: process.
       return audit.verdict === 'BLOCK-RECOMMENDED' ? 1 : 0
     }
 
-    // 输出格式:json / sarif / text
-    if (opts.format === 'sarif') {
+    // 输出格式:json / sarif / html / text
+    if (opts.format === 'html') {
+      const { toHtml } = await import('../engine/output/html.js')
+      const html = toHtml(output)
+      if (opts.out) {
+        const { writeFileSync } = await import('node:fs')
+        writeFileSync(opts.out, html)
+        stdout.write(`HTML report written to ${opts.out}\n`)
+      } else {
+        stdout.write(html)
+      }
+    } else if (opts.format === 'sarif') {
       const { toSarif } = await import('../engine/output/sarif.js')
       const sarif = JSON.stringify(toSarif(output), null, 2) + '\n'
       if (opts.out) {

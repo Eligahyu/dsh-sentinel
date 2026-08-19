@@ -64,6 +64,30 @@ export function emptyCounts() {
 }
 
 /**
+ * 同源重叠抑制:同一文件同一行的"更具体规则"命中时,抑制"更泛规则"命中。
+ * 例:eval(atob(...)) 同时命中 SEN-EXEC-004(解码执行,具体)与 SEN-EXEC-003(裸 eval,泛)。
+ */
+const OVERLAP_SUPPRESSION = [
+  { specific: 'SEN-EXEC-004', generic: 'SEN-EXEC-003' },
+  { specific: 'SEN-TAINT-003', generic: 'SEN-EXEC-003' },
+]
+
+export function suppressOverlaps(findings) {
+  const specific = new Set()
+  for (const f of findings) {
+    if (OVERLAP_SUPPRESSION.some((p) => p.specific === f.ruleId)) {
+      specific.add(`${f.ruleId}|${f.file}|${f.line ?? 1}|${f.package ?? ''}`)
+    }
+  }
+  if (specific.size === 0) return findings
+  return findings.filter((f) => {
+    const g = OVERLAP_SUPPRESSION.find((p) => p.generic === f.ruleId)
+    if (!g) return true
+    return !specific.has(`${g.specific}|${f.file}|${f.line ?? 1}|${f.package ?? ''}`)
+  })
+}
+
+/**
  * Build the canonical report object.
  * @param {object} parts - 见调用方;新增完整度字段:
  *   findingsTotal, filesAnalyzed, filesDiscovered, scanComplete, scanCoverage
@@ -71,9 +95,10 @@ export function emptyCounts() {
 export function buildReport(parts, maxFindings = 300) {
   const counts = emptyCounts()
   const contextCounts = { source: 0, test: 0 }
+  const findings = suppressOverlaps(parts.findings)
   let score = 0
   let total = 0
-  for (const f of parts.findings) {
+  for (const f of findings) {
     total += 1
     const inTest = isTestPath(f.file)
     if (inTest) contextCounts.test += 1
@@ -103,7 +128,7 @@ export function buildReport(parts, maxFindings = 300) {
 
   const order = { critical: 0, high: 1, medium: 2, low: 3, info: 4 }
   const seen = new Set()
-  const capped = [...parts.findings]
+  const capped = [...findings]
     .filter((f) => {
       const key = `${f.ruleId}|${f.file}|${f.line ?? 1}|${f.package ?? ''}`
       if (seen.has(key)) return false

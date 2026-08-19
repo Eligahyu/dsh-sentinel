@@ -52,6 +52,21 @@ export async function acquireNpmPackage(spec) {
     throw new Error(`npm 元数据解析失败:${name}@${version ?? 'latest'}`)
   }
   if (!doc.dist?.tarball) throw new Error(`npm 元数据缺少 tarball:${name}@${doc.version ?? version}`)
+  // provenance(attestations)仅读元数据,不上传任何源码。
+  let attestations = []
+  try {
+    if (Array.isArray(doc.attestations?.entries)) {
+      attestations = doc.attestations.entries.map((e) => ({
+        type: e.attestation?.type ?? '',
+        issuer: e.attestation?.predicateType ?? '',
+        digest: e.attestation?.subject?.[0]?.digest?.sha256 ?? '',
+      }))
+    } else if (doc.attestations) {
+      attestations = [{ type: 'present' }]
+    }
+  } catch {
+    attestations = []
+  }
   return {
     name: doc.name ?? name,
     version: doc.version,
@@ -62,5 +77,6 @@ export async function acquireNpmPackage(spec) {
     },
     dependencies: doc.dependencies ?? {},
     scripts: doc.scripts ?? {},
+    attestations,
   }
 }
