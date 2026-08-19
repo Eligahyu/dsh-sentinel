@@ -35,10 +35,15 @@ Usage:
 
 Options:
   --json          emit the canonical report as JSON
-  --out <file>    write the report to a file (JSON), print a summary to stdout
+  --format <fmt>  output format: json | text | sarif
+  --out <file>    write the report to a file, print a summary to stdout
+  --baseline <f>  diff against a previous report (by stable fingerprint)
+  --fail-on <lvl> exit 1 when any finding ≥ level (critical|high|medium|low)
   --max-files <n> cap scanned files (default 3000)
   --max-plugins <n> cap plugins scanned per profile (default 12)
   --mode <mode>   scan mode: source(默认,跳过 dist/build) | package(扫构建产物) | profile
+  --config <path> sentinel.config.json path (auto-detected in cwd)
+  --include-builtins  include trusted @deepseek-ai scopes in profile audits
   -h, --help      show this help
 
 Exit codes: 0 = safe/review, 1 = risky/dangerous, 2 = usage error.
@@ -96,12 +101,31 @@ function formatText(report, out) {
 export async function main(argv, io = { stdout: process.stdout, stderr: process.stderr }) {
   const { stdout, stderr } = io
   const args = [...argv]
-  const opts = { json: false, out: null, maxFiles: undefined, maxPlugins: undefined, configPath: null, includeBuiltins: false }
+  const opts = { json: false, format: 'text', out: null, maxFiles: undefined, maxPlugins: undefined, configPath: null, includeBuiltins: false, baseline: null, failOn: null }
   const positional = []
   for (let i = 0; i < args.length; i += 1) {
     const a = args[i]
     switch (a) {
-      case '--json': opts.json = true; break
+      case '--json': opts.json = true; opts.format = 'json'; break
+      case '--format': {
+        const fmt = args[++i]
+        if (!['json', 'text', 'sarif'].includes(fmt)) {
+          stderr.write(`dsh-sentinel: --format must be json|text|sarif (got ${fmt})\n`)
+          return 2
+        }
+        opts.format = fmt
+        break
+      }
+      case '--baseline': opts.baseline = args[++i]; break
+      case '--fail-on': {
+        const level = args[++i]
+        if (!['critical', 'high', 'medium', 'low'].includes(level)) {
+          stderr.write(`dsh-sentinel: --fail-on must be critical|high|medium|low (got ${level})\n`)
+          return 2
+        }
+        opts.failOn = level
+        break
+      }
       case '--out': opts.out = args[++i]; break
       case '--max-files': opts.maxFiles = Number(args[++i]); break
       case '--max-plugins': opts.maxPlugins = Number(args[++i]); break
@@ -167,8 +191,33 @@ export async function main(argv, io = { stdout: process.stdout, stderr: process.
   })()
 
   try {
-    const result = await run
+    let result = await run
     if (result === null) return 2
+
+    // 指纹 + baseline(Phase 7)
+    const { attachFingerprints, diffBaseline } = await import('../engine/report/fingerprint.js')
+    const output = result.__audit ? result.__audit.report : result
+    attachFingerprints(output)
+    if (opts.baseline) {
+      const { readFileSync } = await import('node:fs')
+      let baseline = null
+      try {
+        baseline = JSON.parse(readFileSync(opts.baseline, 'utf8'))
+        attachFingerprints(baseline)
+      } catch (error) {
+        stderr.write(`dsh-sentinel: baseline 读取失败(${opts.baseline}): ${error.message}\n`)
+        return 2
+      }
+      const diff = diffBaseline(output, baseline)
+      output.baseline = diff
+      if (opts.format === 'text') {
+        stdout.write(`\nbaseline: new ${diff.newFindings} · existing ${diff.existingFindings} · resolved ${diff.resolvedFindings}\n`)
+        for (const f of diff.new.slice(0, 10)) {
+          stdout.write(`  NEW [${f.severity}] ${f.id} ${f.file}:${f.line} — ${f.message}\n`)
+        }
+      }
+    }
+
     if (result.__audit) {
       const { report, audit } = result.__audit
       const verdictEmoji = { ALLOW: '✅', REVIEW: '👀', 'BLOCK-RECOMMENDED': '🚫' }[audit.verdict] ?? '❓'
@@ -176,24 +225,48 @@ export async function main(argv, io = { stdout: process.stdout, stderr: process.
       stdout.write(`  tarball sha256: ${audit.tarballSha256}\n`)
       stdout.write(`  integrity: ${audit.integrityOk ? 'OK' : `FAIL (${audit.integrityReason ?? 'unknown'})`}\n`)
       stdout.write(`  dependencies: ${audit.dependencyCount} · install scripts: ${audit.installScripts.join(', ') || 'none'}\n`)
-      if (opts.json) {
+      if (opts.format === 'json') {
         stdout.write(JSON.stringify(report, null, 2) + '\n')
       } else {
         formatText(report, stdout)
       }
+      if (opts.out) {
+        const { writeFileSync } = await import('node:fs')
+        writeFileSync(opts.out, JSON.stringify(report, null, 2) + '\n')
+      }
       return audit.verdict === 'BLOCK-RECOMMENDED' ? 1 : 0
     }
-    if (opts.out) {
+
+    // 输出格式:json / sarif / text
+    if (opts.format === 'sarif') {
+      const { toSarif } = await import('../engine/output/sarif.js')
+      const sarif = JSON.stringify(toSarif(output), null, 2) + '\n'
+      if (opts.out) {
+        const { writeFileSync } = await import('node:fs')
+        writeFileSync(opts.out, sarif)
+        stdout.write(`SARIF written to ${opts.out}\n`)
+      } else {
+        stdout.write(sarif)
+      }
+    } else if (opts.out) {
       const { writeFileSync } = await import('node:fs')
-      writeFileSync(opts.out, JSON.stringify(result, null, 2) + '\n')
+      writeFileSync(opts.out, JSON.stringify(output, null, 2) + '\n')
       stdout.write(`report written to ${opts.out}\n`)
-      formatText(result, stdout)
-    } else if (opts.json) {
-      stdout.write(JSON.stringify(result, null, 2) + '\n')
+      formatText(output, stdout)
+    } else if (opts.format === 'json') {
+      stdout.write(JSON.stringify(output, null, 2) + '\n')
     } else {
-      formatText(result, stdout)
+      formatText(output, stdout)
     }
-    return result.summary.verdict === 'risky' || result.summary.verdict === 'dangerous' ? 1 : 0
+
+    // 退出码:--fail-on 阈值优先,否则按裁决
+    if (opts.failOn) {
+      const order = { critical: 0, high: 1, medium: 2, low: 3 }
+      const threshold = order[opts.failOn]
+      const exceeded = output.findings.some((f) => order[f.severity] !== undefined && order[f.severity] <= threshold)
+      return exceeded ? 1 : 0
+    }
+    return output.summary.verdict === 'risky' || output.summary.verdict === 'dangerous' ? 1 : 0
   } catch (error) {
     stderr.write(`dsh-sentinel: ${error?.message ?? String(error)}\n`)
     return 2
