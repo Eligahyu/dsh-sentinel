@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.1 (2026-08) — Release Engineering Final Fix
+
+按 `dsh-sentinel-v0.4-release-engineering-final-fix.md` 完成发布工程闭环(0.4.0 为 RC,0.4.1 为最终 Release):
+
+### Fixed
+- **GitHub Action 依赖安装隔离**:npm ci 定向 `--prefix ${{ github.action_path }}`(绝不在被扫描项目执行),
+  强制 `--ignore-scripts`(最小执行面);vendored acorn 兜底,安装失败/离线仍可扫描
+- **engines 精确对齐**:`^22.18.0 || >=24.11.0`(与 parser runtime 一致),lockfile 重建
+- CI matrix:Node 22.18 / 24.11 × 3 OS
+
+### Added
+- benchmark corpus 扩至 32 项:新增 edge-ipv6-ssrf / edge-credential-specific /
+  edge-multiple-taints / edge-local-bare-exec;hardening edge 组 16 项 precision/recall/F1 = 1.000
+- `action.yml` 进入 npm 包(files)
+- Release Gate 全部核验(§48)
+
 ## 0.4.0 (2026-08) — Final Release Hardening
 
 按 `dsh-sentinel-v0.4-final-release-hardening.md` 完成发布前加固:正确性 / 完整性 / 资源安全 / 打包 / CI 集成,并形成可复现的最终测试证据(137 项测试全绿,benchmark rule F1 0.943 / finding 0.914 / flow 1.000)。

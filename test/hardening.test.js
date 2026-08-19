@@ -672,11 +672,10 @@ test('SARIF:稳定指纹在 dshFingerprint,不冒充 primaryLocationLineHash', a
 
 // ---- P0-4: 版本一致性(§29) ----
 
-test('version consistency:package.json == package-lock == VERSION == 0.4.0', async () => {
+test('version consistency:package.json == package-lock == VERSION', async () => {
   const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
   const lock = JSON.parse(readFileSync(new URL('../package-lock.json', import.meta.url), 'utf8'))
   const { VERSION } = await import('../engine/version.js')
-  assert.equal(pkg.version, '0.4.0')
   assert.equal(lock.packages[''].version, pkg.version)
   assert.equal(VERSION, pkg.version)
   // engines 与 parser runtime 精确对齐(^22.18.0 || >=24.11.0)
