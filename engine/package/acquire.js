@@ -8,7 +8,10 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 
-export const NPM_REGISTRY = process.env.SENTINEL_NPM_REGISTRY ?? 'https://registry.npmjs.org'
+/** registry 地址:每次调用读取(可被测试/镜像覆盖,不受模块缓存影响)。 */
+export function npmRegistry() {
+  return process.env.SENTINEL_NPM_REGISTRY ?? 'https://registry.npmjs.org'
+}
 
 /** 解析 'name' 或 'name@version' 规格。 */
 export function parsePackageSpec(spec) {
@@ -18,10 +21,15 @@ export function parsePackageSpec(spec) {
   return { name: s.slice(0, at), version: s.slice(at + 1) }
 }
 
+/** metadata 响应体上限(§9.2:先限流再读取,绝不整读超限响应)。 */
+export const METADATA_MAX_BYTES = 5 * 1024 * 1024
+
 /** 沙箱内获取 URL 文本:curl -o 落盘再读(规避管道/重定向限制)。 */
-function fetchText(url) {
+function fetchText(url, { maxBytes = METADATA_MAX_BYTES } = {}) {
   const out = join(tmpdir(), `npm-fetch-${Date.now()}-${Math.random().toString(36).slice(2)}.json`)
-  const r = spawnSync('curl.exe', ['-s', '--max-time', '30', '-o', out, url], { stdio: 'ignore' })
+  // --max-time 覆盖 redirect+headers+body(全 request deadline);--max-filesize 在
+  // 超过字节上限时中止并写 partial(下方 rmSync 兜底清理);--noproxy 沙箱内直连。
+  const r = spawnSync('curl.exe', ['-s', '--noproxy', '*', '--max-time', '30', '--max-filesize', String(maxBytes), '-o', out, url], { stdio: 'ignore' })
   let text = null
   if (r.status === 0) {
     try { text = readFileSync(out, 'utf8') } catch { text = null }
@@ -39,8 +47,8 @@ export async function acquireNpmPackage(spec) {
   const { name, version } = parsePackageSpec(spec)
   if (!name) throw new Error(`invalid package spec: ${spec}`)
   const url = version
-    ? `${NPM_REGISTRY}/${encodeURIComponent(name)}/${encodeURIComponent(version)}`
-    : `${NPM_REGISTRY}/${encodeURIComponent(name)}/latest`
+    ? `${npmRegistry()}/${encodeURIComponent(name)}/${encodeURIComponent(version)}`
+    : `${npmRegistry()}/${encodeURIComponent(name)}/latest`
   const text = fetchText(url)
   if (text === null || !text.trim().startsWith('{')) {
     throw new Error(`无法获取 npm 元数据:${name}@${version ?? 'latest'}(注册表不可达或包不存在)`)

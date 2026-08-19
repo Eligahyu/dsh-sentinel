@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { gzipSync } from 'node:zlib'
+import { createServer } from 'node:http'
 
 import { FindingBuffer, scanTree, collectFiles } from '../engine/scanner.js'
 import { computeRuntimeEntries } from '../engine/index.js'
@@ -288,4 +289,39 @@ test('diffPackageWithSource:完成后 tgz 与 quarantine 都清理(联网,不可
   }
   const after = sentinelLeftovers().filter((n) => !before.has(n))
   assert.deepEqual(after, [], 'diff 路径 tgz+quarantine 均无残留')
+})
+
+// ---- P0-7: metadata/download full-body resource limit ----
+// 注:沙箱禁子进程回环互连,curl --max-filesize 的 HTTP 行为无法本地端到端验证;
+// 此处验证资源上限常量 + 失败路径的 partial 清理(curl 语义由标准实现保证)。
+
+test('资源上限常量:metadata 5MB,tarball 512MB', async () => {
+  const acquire = await import('../engine/package/acquire.js')
+  const tarball = await import('../engine/package/tarball.js')
+  assert.equal(acquire.METADATA_MAX_BYTES, 5 * 1024 * 1024)
+  assert.equal(tarball.TARBALL_MAX_BYTES, 512 * 1024 * 1024)
+})
+
+test('downloadTarball:失败路径无 partial 残留(不可达 URL 快速失败)', async () => {
+  const { downloadTarball } = await import('../engine/package/tarball.js')
+  const before = new Set(sentinelLeftovers())
+  // 10.255.255.1 不可达:connect-timeout 3s 后 curl 失败 → 必须清理 partial
+  await assert.rejects(
+    () => downloadTarball('http://10.255.255.1:9/x.tgz', '', { maxBytes: 1024 }),
+    /下载失败/,
+  )
+  const after = sentinelLeftovers().filter((n) => !before.has(n))
+  assert.deepEqual(after, [], '失败下载不残留 partial tgz')
+})
+
+test('acquireNpmPackage:注册表不可达时明确报错(失败路径)', async () => {
+  const { acquireNpmPackage } = await import('../engine/package/acquire.js')
+  const oldRegistry = process.env.SENTINEL_NPM_REGISTRY
+  process.env.SENTINEL_NPM_REGISTRY = 'http://10.255.255.1:9'
+  try {
+    await assert.rejects(() => acquireNpmPackage('some-pkg'), /无法获取 npm 元数据/)
+  } finally {
+    if (oldRegistry === undefined) delete process.env.SENTINEL_NPM_REGISTRY
+    else process.env.SENTINEL_NPM_REGISTRY = oldRegistry
+  }
 })

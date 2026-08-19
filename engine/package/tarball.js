@@ -26,13 +26,22 @@ export function fileSha256(filePath) {
   return createHash('sha256').update(readFileSync(filePath)).digest('hex')
 }
 
+/** tarball 下载体上限(§9.4:超大/恶意 tarball 绝不整包落盘)。 */
+export const TARBALL_MAX_BYTES = 512 * 1024 * 1024
+
 /**
  * 下载 tarball 到临时文件并校验 integrity。
+ * @param {string} tarballUrl
+ * @param {string} integrity
+ * @param {object} [opts] - {maxBytes}
  * @returns {Promise<{tarballPath: string, sha256: string, integrityOk: boolean, integrityReason?: string}>}
  */
-export async function downloadTarball(tarballUrl, integrity) {
+export async function downloadTarball(tarballUrl, integrity, opts = {}) {
+  const maxBytes = opts.maxBytes ?? TARBALL_MAX_BYTES
   const tarballPath = join(tmpdir(), `sentinel-pkg-${Date.now()}-${Math.random().toString(36).slice(2)}.tgz`)
-  const r = spawnSync('curl.exe', ['-sL', '--max-time', '120', '-o', tarballPath, tarballUrl], { stdio: 'ignore' })
+  // --max-time 覆盖 redirect+headers+body;--max-filesize 超限即中止;
+  // 失败/超限/partial 一律 rmSync 清理(§9.4)。
+  const r = spawnSync('curl.exe', ['-sL', '--noproxy', '*', '--max-time', '120', '--max-filesize', String(maxBytes), '-o', tarballPath, tarballUrl], { stdio: 'ignore' })
   if (r.status !== 0) {
     rmSync(tarballPath, { force: true })
     throw new Error(`tarball 下载失败:${tarballUrl}`)

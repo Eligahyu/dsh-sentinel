@@ -24,7 +24,8 @@ export async function queryOsv(name, version) {
   let status = 'unavailable'
   try {
     writeFileSync(bodyFile, JSON.stringify({ package: { name, ecosystem: 'npm' }, version }), 'utf8')
-    const r = spawnSync('curl.exe', ['-s', '--max-time', '20', '-X', 'POST', '-H', 'Content-Type: application/json',
+    const r = spawnSync('curl.exe', ['-s', '--noproxy', '*', '--max-time', '20', '--max-filesize', '5242880',
+      '-X', 'POST', '-H', 'Content-Type: application/json',
       '--data', `@${bodyFile}`, '-o', outPath, OSV_API], { stdio: 'ignore' })
     if (r.status === 0) {
       const doc = JSON.parse(readFileSync(outPath, 'utf8'))
