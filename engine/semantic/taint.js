@@ -1,0 +1,293 @@
+/**
+ * AST 污点分析(Phase 5):source → propagation → sink。
+ *
+ * 检测流(confidence: high):
+ *   SEN-AGENT-001/002/003/004  — defineTool execute(args) 内 args.* → shell/文件/网络
+ *   SEN-TAINT-001 secret-to-network    — process.env.* 凭据 → 网络
+ *   SEN-TAINT-002 workspace-to-network — readFile 结果 → 网络(潜在源码外传)
+ *   SEN-TAINT-003 decode-to-exec       — base64/hex/URI 解码 → eval/Function/exec
+ *   跨函数(同文件):本地函数参数传播,深度受限。
+ */
+
+import { walk, calleeName, staticString, referencedIdentifiers, collectAliases } from './ast.js'
+
+const SINKS = [
+  { names: ['exec', 'execSync', 'spawn', 'spawnSync', 'execFile', 'execFileSync', 'fork', 'eval', 'vm.runInNewContext', 'vm.runInThisContext', 'vm.runInContext'], type: 'shell', ruleId: 'SEN-AGENT-001', severity: 'critical' },
+  { names: ['readFile', 'readFileSync', 'createReadStream', 'openSync'], type: 'file-read', ruleId: 'SEN-AGENT-002', severity: 'high' },
+  { names: ['writeFile', 'writeFileSync', 'appendFile', 'appendFileSync', 'createWriteStream'], type: 'file-write', ruleId: 'SEN-AGENT-003', severity: 'high' },
+  { names: ['fetch', 'axios', 'http.request', 'https.request', 'WebSocket', 'sendBeacon'], type: 'network', ruleId: 'SEN-AGENT-004', severity: 'high' },
+]
+const SINK_NAMES = new Set(SINKS.flatMap((s) => s.names))
+const DECODERS = new Set(['atob', 'decodeURIComponent', 'unescape', 'String.fromCharCode'])
+const READERS = new Set(['readFile', 'readFileSync', 'createReadStream', 'openSync'])
+const SECRET_ENV = /(?:API_KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|PRIVATE_KEY|AUTH)/i
+
+const MESSAGES = {
+  'SEN-AGENT-001': '模型可控输入进入 shell 执行(execute(args) → exec/spawn)',
+  'SEN-AGENT-002': '模型可控输入进入文件读取(execute(args) → readFile)',
+  'SEN-AGENT-003': '模型可控输入进入文件写入(execute(args) → writeFile)',
+  'SEN-AGENT-004': '模型可控输入进入网络请求目标(execute(args) → fetch/axios)',
+  'SEN-TAINT-001': '凭据(env)流向网络请求,存在外传风险',
+  'SEN-TAINT-002': '文件读取结果流向网络请求,存在源码/数据外传风险',
+  'SEN-TAINT-003': '解码后的内容流向动态执行,疑似混淆载荷',
+}
+const RECOMMENDATIONS = {
+  'SEN-AGENT-001': '拒绝把模型输入直接拼进 shell 命令;用参数数组形式 spawn(cmd, [args]) 并做白名单校验。',
+  'SEN-AGENT-002': '文件读取必须做 workspace containment,否则模型可读取任意文件。',
+  'SEN-AGENT-003': '文件写入必须做 workspace containment,并拒绝写入 HOME / 系统目录 / DSH profile。',
+  'SEN-AGENT-004': '模型控制 URL 即 SSRF 面。限制协议与目标(禁 localhost/内网/云元数据)。',
+  'SEN-TAINT-001': '确认请求目标完全可信;凭据绝不应流向非官方端点。',
+  'SEN-TAINT-002': '确认工作区内容不会随网络请求离开本机。',
+  'SEN-TAINT-003': '解码内容必须人工复核;无文档说明的解码执行按恶意处理。',
+}
+
+/** 归一化 callee:应用别名与 cp 变量。 */
+function resolveCallee(raw, aliases) {
+  if (SINK_NAMES.has(raw)) return raw
+  if (aliases.has(raw) && SINK_NAMES.has(aliases.get(raw))) return aliases.get(raw)
+  // cp.exec / child_process.exec 形态
+  const dot = raw.lastIndexOf('.')
+  if (dot > 0) {
+    const tail = raw.slice(dot + 1)
+    if (SINK_NAMES.has(tail)) return tail
+  }
+  return null
+}
+
+function lineSnippet(content, node) {
+  const line = content.slice(0, node.start).split('\n').length
+  const text = (content.split('\n')[line - 1] ?? '').replace(/\s+/g, ' ').trim()
+  return { line, snippet: text.length > 240 ? text.slice(0, 239) + '…' : text }
+}
+
+/** 表达式是否为 env 凭据读取(process.env['API_KEY'] 等)。 */
+function isSecretEnvRead(node) {
+  if (node?.type !== 'MemberExpression') return false
+  const obj = node.object
+  if (calleeName(obj) !== 'process.env') return false
+  const key = staticString(node.property) ?? (node.property.type === 'Identifier' ? node.property.name : null)
+  return key !== null && SECRET_ENV.test(key)
+}
+
+/** 表达式是否为解码调用。 */
+function isDecodeCall(node) {
+  if (node?.type !== 'CallExpression') return false
+  const raw = calleeName(node.callee)
+  if (raw === 'Buffer.from' || raw === 'Buffer.from.alloc') return true
+  if (DECODERS.has(raw)) return true
+  if (raw && /^fs\./.test(raw)) return false
+  return false
+}
+
+/** 表达式是否为文件读取调用。 */
+function isReadCall(node) {
+  if (node?.type !== 'CallExpression') return false
+  const raw = calleeName(node.callee)
+  if (READERS.has(raw)) return true
+  if (raw && /^fs\./.test(raw)) return READERS.has(raw.split('.').pop())
+  return false
+}
+
+/** 表达式标签:'env' | 'decode' | 'read' | 'args' | null(扫描整棵表达式树)。 */
+function sourceTag(node, toolArgName) {
+  if (!node) return null
+  let tag = null
+  const visit = (n) => {
+    if (tag) return
+    if (isSecretEnvRead(n)) { tag = 'env'; return }
+    if (isDecodeCall(n)) { tag = 'decode'; return }
+    if (isReadCall(n)) { tag = 'read'; return }
+    if (toolArgName && n?.type === 'MemberExpression' && n.object.type === 'Identifier' && n.object.name === toolArgName) {
+      tag = 'args'
+    }
+  }
+  walk(node, visit)
+  visit(node)
+  return tag
+}
+
+/**
+ * 单个函数体的污点分析。
+ * @param {object} ctx {content, aliases, file}
+ * @param {object} fn {bodyNode, params, toolArgName, localFunctions}
+ * @param {number} depth
+ */
+function taintFunction(ctx, fn, depth = 0) {
+  const { content, aliases } = ctx
+  const findings = []
+  const taints = new Map(ctx.paramTaints ?? new Map()) // 变量名 → 标签
+  const declarators = []
+  const calls = []
+
+  const bodyNode = fn.bodyNode.type === 'BlockStatement' ? fn.bodyNode : { type: 'BlockStatement', body: [fn.bodyNode] }
+  walk(bodyNode, (node) => {
+    if (node.type === 'VariableDeclarator' && node.id.type === 'Identifier') declarators.push(node)
+    if (node.type === 'CallExpression') calls.push(node)
+  })
+
+  // 传播到不动点
+  let changed = true
+  let rounds = 0
+  while (changed && rounds < 6) {
+    changed = false
+    rounds += 1
+    for (const d of declarators) {
+      const name = d.id.name
+      if (taints.has(name)) continue
+      const direct = sourceTag(d.init, fn.toolArgName)
+      if (direct) {
+        taints.set(name, direct)
+        changed = true
+        continue
+      }
+      const refs = referencedIdentifiers(d.init)
+      for (const r of refs) {
+        if (taints.has(r)) {
+          taints.set(name, taints.get(r))
+          changed = true
+          break
+        }
+      }
+    }
+  }
+
+  const pushFinding = (ruleId, severity, category, sourceName, sinkName, sinkType, call) => {
+    const { line, snippet } = lineSnippet(content, call)
+    findings.push({
+      ruleId, severity, category, confidence: 'high',
+      message: MESSAGES[ruleId], file: ctx.file, line, snippet,
+      recommendation: RECOMMENDATIONS[ruleId],
+      source: { type: 'tool-argument', name: sourceName },
+      sink: { type: sinkType, callee: sinkName },
+      flow: [sourceName, `${sinkName}(...)`],
+    })
+  }
+
+  for (const call of calls) {
+    const raw = calleeName(call.callee)
+    if (!raw) continue
+    const sinkName = resolveCallee(raw, aliases)
+    if (!sinkName) continue
+    const sink = SINKS.find((s) => s.names.includes(sinkName))
+    if (!sink) continue
+
+    // 参数污点标签
+    let tag = null
+    let sourceName = null
+    for (const arg of call.arguments) {
+      const t = sourceTag(arg, fn.toolArgName)
+      if (t) { tag = t; sourceName = arg.type === 'MemberExpression' ? calleeName(arg) : 'direct'; break }
+      const refs = referencedIdentifiers(arg)
+      for (const r of refs) {
+        if (taints.has(r)) { tag = taints.get(r); sourceName = r; break }
+      }
+      if (tag) break
+    }
+    if (!tag) continue
+
+    // 规则选择
+    let ruleId = sink.ruleId
+    let severity = sink.severity
+    let category = 'agent'
+    if (tag === 'env' && sink.type === 'network') { ruleId = 'SEN-TAINT-001'; severity = 'critical'; category = 'taint' }
+    else if (tag === 'read' && sink.type === 'network') { ruleId = 'SEN-TAINT-002'; severity = 'high'; category = 'taint' }
+    else if (tag === 'decode' && sink.type === 'shell') { ruleId = 'SEN-TAINT-003'; severity = 'critical'; category = 'taint' }
+    pushFinding(ruleId, severity, category, sourceName, sinkName, sink.type, call)
+  }
+
+  // 跨函数(同文件,深度受限):本地函数调用,参数带污点 → 递归分析该函数
+  if (depth < 1 && fn.localFunctions) {
+    for (const call of calls) {
+      const raw = calleeName(call.callee)
+      if (!raw || SINK_NAMES.has(resolveCallee(raw, aliases) ?? '')) continue // sink 已处理
+      const localFn = fn.localFunctions.get(raw)
+      if (!localFn) continue
+      const paramTaints = new Map()
+      localFn.params.forEach((p, i) => {
+        const arg = call.arguments[i]
+        if (!arg) return
+        const t = sourceTag(arg, fn.toolArgName)
+        if (t) paramTaints.set(p, t)
+        else {
+          const refs = referencedIdentifiers(arg)
+          for (const r of refs) if (taints.has(r)) paramTaints.set(p, taints.get(r))
+        }
+      })
+      if (paramTaints.size === 0) continue
+      const sub = taintFunction({ ...ctx, paramTaints }, {
+        bodyNode: localFn.bodyNode,
+        params: localFn.params,
+        toolArgName: fn.toolArgName,
+        localFunctions: fn.localFunctions,
+      }, depth + 1)
+      for (const f of sub) {
+        if (!findings.some((x) => x.ruleId === f.ruleId && x.line === f.line)) findings.push(f)
+      }
+    }
+  }
+  return findings
+}
+
+/**
+ * AST 污点扫描入口。
+ * @param {object} ast - acorn AST
+ * @param {string} content
+ * @param {string} relPath
+ * @returns {Array} findings
+ */
+export function astTaintScan(ast, content, relPath) {
+  const aliases = collectAliases(content)
+  const localFunctions = new Map()
+  const executeFns = []
+
+  walk(ast, (node) => {
+    if (node.type === 'FunctionDeclaration' && node.id) {
+      localFunctions.set(node.id.name, { params: node.params.map((p) => p.name).filter(Boolean), bodyNode: node.body })
+    }
+    if (node.type === 'VariableDeclarator' && node.id.type === 'Identifier'
+      && (node.init?.type === 'ArrowFunctionExpression' || node.init?.type === 'FunctionExpression')) {
+      localFunctions.set(node.id.name, {
+        params: node.init.params.map((p) => p.name).filter(Boolean),
+        bodyNode: node.init.body.type === 'BlockStatement' ? node.init.body : { type: 'BlockStatement', body: [node.init.body] },
+      })
+    }
+    if (node.type === 'CallExpression' && calleeName(node.callee) === 'defineTool') {
+      const obj = node.arguments[0]
+      if (obj?.type === 'ObjectExpression') {
+        for (const prop of obj.properties) {
+          const key = prop.key?.name ?? staticString(prop.key)
+          if (key === 'execute' && (prop.value?.type === 'FunctionExpression' || prop.value?.type === 'ArrowFunctionExpression')) {
+            executeFns.push(prop.value)
+          }
+        }
+      }
+    }
+  })
+
+  const ctx = { content, aliases, file: relPath }
+  const findings = []
+
+  // 1) execute(args) 上下文(SEN-AGENT)
+  for (const fn of executeFns) {
+    const argName = fn.params[0]?.name ?? 'args'
+    const hits = taintFunction({ ...ctx, paramTaints: new Map() }, {
+      bodyNode: fn.body,
+      params: fn.params.map((p) => p.name).filter(Boolean),
+      toolArgName: argName,
+      localFunctions,
+    }, 0)
+    for (const h of hits) findings.push(h)
+  }
+
+  // 2) 全文件通用流(SEN-TAINT):env/decode/read → sink
+  const gHits = taintFunction({ ...ctx, paramTaints: new Map() }, {
+    bodyNode: ast,
+    params: [],
+    localFunctions,
+  }, 0)
+  for (const h of gHits) {
+    if (!findings.some((f) => f.ruleId === h.ruleId && f.line === h.line)) findings.push(h)
+  }
+
+  return findings
+}

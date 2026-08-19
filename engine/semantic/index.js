@@ -1,20 +1,32 @@
 /**
- * Semantic engine 骨架(AST 前的第一阶段)。
+ * Semantic engine(Phase 4+5):AST 优先,正则兜底。
  *
- * 定位:把"正则有没有 exec"升级为"谁控制这个值、流进了什么 sink"。
- * 当前实现是作用域内的轻量污点分析(无完整 AST):
- *   - 识别 defineTool 的 execute(args) 主体(多种写法)
- *   - 收集 child_process 别名(const { exec: run } = require('child_process'))
- *   - 在主体内跟踪 args.* → 变量赋值 → sink 调用的传播
- *   - 输出 SEN-AGENT-* 系列 finding(confidence: medium,待 AST 版升级为 high)
+ *   AST 可用  → astTaintScan(confidence: high)
+ *   解析失败  → regexSemanticScan(confidence: medium,旧版行为保留)
  *
- * 后续阶段:替换为真实 parser(acorn/@babel/meriyah)+ 跨函数/跨文件数据流。
  * 红线不变:只读静态分析,绝不执行被扫描代码。
  */
 
 import { CODE_EXT } from '../rules.js'
+import { parseJavaScript } from './ast.js'
+import { astTaintScan } from './taint.js'
 
-/** 危险 sink 分类表:callee 名 → { type, ruleId, severity }。 */
+/** 语义扫描入口。 */
+export function semanticScan(content, relPath) {
+  if (!CODE_EXT.test(relPath)) return []
+  const ast = parseJavaScript(content)
+  if (ast !== null) {
+    try {
+      return astTaintScan(ast, content, relPath)
+    } catch {
+      // AST 分析异常时降级到正则版,保证不因分析器崩溃丢结果
+    }
+  }
+  return regexSemanticScan(content, relPath)
+}
+
+// ─────────────────────────── 正则兜底版(旧行为,confidence: medium)───────────────────────────
+
 const SINKS = [
   { names: ['exec', 'execSync', 'spawn', 'spawnSync', 'execFile', 'execFileSync', 'fork'], type: 'shell', ruleId: 'SEN-AGENT-001', severity: 'critical' },
   { names: ['readFile', 'readFileSync', 'createReadStream', 'openSync'], type: 'file-read', ruleId: 'SEN-AGENT-002', severity: 'high' },
@@ -32,13 +44,13 @@ const MESSAGES = {
 }
 
 const RECOMMENDATIONS = {
-  'SEN-AGENT-001': '拒绝把模型输入直接拼进 shell 命令。用参数数组形式 spawn(cmd, [args]),并对输入做白名单校验。',
+  'SEN-AGENT-001': '拒绝把模型输入直接拼进 shell 命令;用参数数组形式 spawn(cmd, [args]) 并做白名单校验。',
   'SEN-AGENT-002': '文件读取必须做 workspace containment(先 resolve 再校验在根目录内),否则模型可读取任意文件。',
   'SEN-AGENT-003': '文件写入必须做 workspace containment,并拒绝写入 HOME / 系统目录 / DSH profile。',
   'SEN-AGENT-004': '模型控制 URL 即 SSRF 面。限制协议(http/https)与目标(禁 localhost/内网/云元数据 169.254.169.254)。',
 }
 
-/** 粗略括号配对:返回与 openIdx 匹配的闭括号下标。 */
+/** 粗略括号配对。 */
 function matchBrace(content, openIdx, open = '{', close = '}') {
   let depth = 0
   let inStr = null
@@ -61,8 +73,8 @@ function matchBrace(content, openIdx, open = '{', close = '}') {
   return -1
 }
 
-/** 收集 child_process 别名:const { exec: run } = require(...) / import { exec as run } / const cp = require(...)。 */
-function collectAliases(content) {
+/** 收集 child_process 别名。 */
+export function collectAliasesForRegex(content) {
   const aliases = new Map()
   const destructureRe = /\{\s*([\s\S]*?)\s*}\s*=\s*(?:require|await\s+import)\s*\(\s*['"]child_process['"]\s*\)/g
   let m
@@ -89,45 +101,33 @@ function collectAliases(content) {
   return aliases
 }
 
-/**
- * 语义扫描一个 JS/TS 文件。
- * @returns {Array} findings(SEN-AGENT-* 系列)
- */
-export function semanticScan(content, relPath) {
-  if (!CODE_EXT.test(relPath)) return []
+/** 正则版语义扫描(解析失败时的兜底)。 */
+export function regexSemanticScan(content, relPath) {
   const findings = []
   const fileLines = content.split('\n')
-  const dbg = process.env.SEM_DBG === '1' ? (...a) => console.error('[sem]', ...a) : () => {}
   const makeSnippet = (lineNo, max = 240) => {
     const t = (fileLines[lineNo - 1] ?? '').replace(/\s+/g, ' ').trim()
     return t.length <= max ? t : t.slice(0, max - 1) + '…'
   }
 
-  // 1) 找 defineTool 区域
   const defineRe = /\bdefineTool\s*\(\s*\{/g
   let dm
   while ((dm = defineRe.exec(content)) !== null) {
-    dbg('defineTool at', dm.index)
     const regionEnd = matchBrace(content, dm.index + dm[0].length - 1)
-    if (regionEnd < 0) { dbg('  no region end'); continue }
+    if (regionEnd < 0) continue
     const region = content.slice(dm.index, regionEnd + 1)
-    // 2) 找 execute 主体(多种写法)
     const execRe = /\b(?:async\s+)?execute\s*(?::\s*(?:async\s*)?)?\(\s*([A-Za-z_$][\w$]*)\s*\)\s*(?:=>\s*)?\{/g
     let em
     while ((em = execRe.exec(region)) !== null) {
-      dbg('  execute at', em.index, 'arg=', em[1])
-      const bodyStart = em.index + em[0].length - 1 // '{' 的位置(em[0] 以 { 结尾)
+      const bodyStart = em.index + em[0].length - 1
       const bodyEnd = matchBrace(region, bodyStart)
-      if (bodyEnd < 0) { dbg('    no body end'); continue }
+      if (bodyEnd < 0) continue
       const body = region.slice(bodyStart + 1, bodyEnd)
-      dbg('    body=', JSON.stringify(body.slice(0, 80)))
       const argName = em[1] ?? 'args'
-      const aliases = collectAliases(content)
-      // body 行号 → 文件行号(基于全文偏移,不能只算 region 内)
+      const aliases = collectAliasesForRegex(content)
       const beforeBody = content.slice(0, dm.index + bodyStart).split('\n')
       const fileLine = (bodyLine) => beforeBody.length + bodyLine - 1
 
-      // 3) 主体内污点:args.* 引用 + 赋值传播
       const tainted = new Set()
       const argRe = new RegExp(`\\b${argName}\\s*\\.\\s*([A-Za-z_$][\\w$]*)`, 'g')
       let am
@@ -136,11 +136,7 @@ export function semanticScan(content, relPath) {
       const assigns = []
       let asm
       while ((asm = assignRe.exec(body)) !== null) assigns.push({ name: asm[1], expr: asm[2] })
-      // 直接传播:const X = args.command
-      for (const a of assigns) {
-        if (a.expr.includes(`${argName}.`)) tainted.add(a.name)
-      }
-      // 多步传播:b = a
+      for (const a of assigns) if (a.expr.includes(`${argName}.`)) tainted.add(a.name)
       let changed = true
       while (changed) {
         changed = false
@@ -153,15 +149,12 @@ export function semanticScan(content, relPath) {
         }
       }
 
-      // 4) sink 检测:callee(含别名)+ 参数含污点
-      // 别名 → 真实 sink 映射(规避检测:const { exec: run } = require('child_process'))
       const aliasSinks = []
       for (const [alias, original] of aliases) {
         const sink = SINKS.find((s) => s.names.includes(original))
         if (sink) aliasSinks.push({ alias, sink })
       }
       const checkSink = (callee, sink, openParenIdx) => {
-        // openParenIdx 指向 '(';从它开始配对,argText 为括号内内容。
         const callEnd = matchBrace(body, openParenIdx, '(', ')')
         const argText = callEnd > 0 ? body.slice(openParenIdx + 1, callEnd) : ''
         const taintedHit = [...tainted].find((t) => {
@@ -188,16 +181,12 @@ export function semanticScan(content, relPath) {
       for (const sink of SINKS) {
         const calleeRe = new RegExp(`\\b(${sink.names.join('|')})\\s*\\(`, 'g')
         let sm
-        while ((sm = calleeRe.exec(body)) !== null) {
-          checkSink(sm[1], sink, sm.index + sm[0].length - 1)
-        }
+        while ((sm = calleeRe.exec(body)) !== null) checkSink(sm[1], sink, sm.index + sm[0].length - 1)
       }
       for (const { alias, sink } of aliasSinks) {
         const aliasRe = new RegExp(`\\b${alias.replace(/\./g, '\\.')}\\s*\\(`, 'g')
         let sm
-        while ((sm = aliasRe.exec(body)) !== null) {
-          checkSink(alias, sink, sm.index + sm[0].length - 1)
-        }
+        while ((sm = aliasRe.exec(body)) !== null) checkSink(alias, sink, sm.index + sm[0].length - 1)
       }
     }
   }

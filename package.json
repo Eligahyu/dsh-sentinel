@@ -62,5 +62,8 @@
     "static-analysis",
     "plugin",
     "cordis"
-  ]
+  ],
+  "dependencies": {
+    "acorn": "^8.18.0"
+  }
 }

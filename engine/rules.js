@@ -584,6 +584,35 @@ export const RULES = Object.freeze([
     description: '模型可控参数成为网络请求 URL,即 SSRF / 任意出网能力面。',
     recommendation: '限制协议(http/https)与目标(禁 localhost / 内网 / 云元数据 169.254.169.254)。',
   },
+
+  // ─────────────────────────── taint(污点传播,由语义引擎产生)───────────────────────────
+  {
+    id: 'SEN-TAINT-001',
+    name: 'secret-to-network',
+    severity: 'critical',
+    category: 'taint',
+    message: '凭据(env)流向网络请求,存在外传风险',
+    description: 'process.env 中的凭据(API key/token/secret)直接或经变量传播进入网络请求。',
+    recommendation: '确认请求目标完全可信;凭据绝不应流向非官方端点。',
+  },
+  {
+    id: 'SEN-TAINT-002',
+    name: 'workspace-to-network',
+    severity: 'high',
+    category: 'taint',
+    message: '文件读取结果流向网络请求,存在源码/数据外传风险',
+    description: 'readFile 等读取的结果(可能是工作区源码/配置)进入网络请求体。',
+    recommendation: '确认工作区内容不会随网络请求离开本机。',
+  },
+  {
+    id: 'SEN-TAINT-003',
+    name: 'decode-to-exec-flow',
+    severity: 'critical',
+    category: 'taint',
+    message: '解码后的内容流向动态执行,疑似混淆载荷',
+    description: 'base64/hex/URI 解码(Buffer.from/atob/fromCharCode 等)的结果进入 eval/Function/exec。',
+    recommendation: '解码内容必须人工复核;无文档说明的解码执行按恶意处理。',
+  },
 ])
 
 /** Rules that are purely manifest/hygiene and produce one finding per target. */
