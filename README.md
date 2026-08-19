@@ -53,7 +53,7 @@ DeepSeek Harness 插件生态在爆发:截至 2026-08,仅 [awesome-dsh-plugin](h
 | 🔒 只读安全 | 不执行被扫描代码、不跟随符号链接、manifest 路径防逃逸、大文件走 lite 分析不跳过、超过 20MB 记录 metadata 并标记不完整 |
 | 🕶️ 隐私保护 | 报告中的 **secret 一律脱敏**(永远开启,只保留指纹);`--redact-paths` 匿名化绝对路径;所有 ignore/skip 全部进入报告,绝不静默 |
 | 🧪 自带验证 | 94 项自动化测试(positive/negative/evasion)+ 三级 benchmark(rule / finding±2 行 / flow source→sink) |
-| 🚀 CI 集成 | `--format sarif`(2.1.0,相对路径 + 稳定指纹)、`--fail-on`、`--fail-on-incomplete`(exit 3)、`--strict-exit-codes`、自包含 [GitHub Action](.github/actions/dsh-sentinel/) |
+| 🚀 CI 集成 | `--format sarif`(2.1.0,相对路径 + 稳定指纹)、`--fail-on`、`--fail-on-incomplete`(exit 3)、`--strict-exit-codes`、自包含 [GitHub Action](action.yml) |
 
 ## 快速开始
 
@@ -99,7 +99,7 @@ node bin/sentinel.mjs --rules                  # 打印规则目录
 ### GitHub Action
 
 ```yaml
-- uses: Eligahyu/dsh-sentinel-scanner@v1
+- uses: Eligahyu/dsh-sentinel-scanner@v0.4
   with:
     path: .
     mode: source

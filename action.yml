@@ -1,61 +1,62 @@
-# dsh-sentinel GitHub Action
+# dsh-sentinel-scanner GitHub Action (root action, structure A)
 #
 # 在 PR / push 时对插件源码或仓库运行 dsh-sentinel 静态安全扫描,
 # 输出 SARIF(供 GitHub Code Scanning 展示)并依据 fail-on 决定 job 是否失败。
 #
-# 重要定位:SARIF 只是"结果标准化"格式,Action 只是"自动化执行层"——
-# 真正检测能力来自 dsh-sentinel engine(仓库内 bin/sentinel.mjs)。
-#
-# 用法(workflow):
+# 用法(用户 workflow):
 #   steps:
 #     - uses: actions/checkout@v4
-#     - uses: Eligahyu/dsh-sentinel@v1
+#     - uses: Eligahyu/dsh-sentinel-scanner@v0.4
 #       with:
 #         path: .
 #         mode: source
 #         fail-on: high
 #     - name: Upload SARIF
-#       if: always()
+#       if: always() && hashFiles('sentinel.sarif') != ''
 #       uses: github/codeql-action/upload-sarif@v3
 #       with:
 #         sarif_file: sentinel.sarif
+#
+# 自包含说明:AST 解析依赖 acorn;仓库内已 vendor 单文件副本
+# (.github/actions/dsh-sentinel/vendor/acorn.mjs),引擎自动回退加载,
+# 因此 Action 无需 npm install,checkout 即用。
 
-name: 'dsh-sentinel'
-description: 'DSH 插件/源码静态安全扫描并生成 SARIF(供 GitHub Code Scanning)'
+name: 'dsh-sentinel-scanner'
+description: 'Static security scan of DSH plugins/source with SARIF output (for GitHub Code Scanning)'
 author: 'Eligahyu'
 
 inputs:
   path:
-    description: '扫描目标(目录或单文件)'
+    description: 'Scan target (directory or single file)'
     required: false
     default: '.'
   mode:
-    description: '扫描模式:source(默认,跳过 dist/build)| package(扫构建产物)| profile'
+    description: 'Scan mode: source (default, skips dist/build) | package | profile'
     required: false
     default: 'source'
   fail-on:
-    description: '任一 finding ≥ 该级别时 job 失败:critical | high | medium | low'
+    description: 'Fail the job when any finding >= this severity: critical | high | medium | low'
     required: false
     default: 'high'
   fail-on-incomplete:
-    description: '扫描不完整(maxFiles/文件大小/插件数受限)时以退出码 3 失败'
+    description: 'Exit 3 when the scan is incomplete (maxFiles / file size / plugin count limits)'
     required: false
     default: 'false'
   max-files:
-    description: '扫描文件数上限'
+    description: 'Max files to scan'
     required: false
     default: '3000'
   sarif-file:
-    description: 'SARIF 输出文件名(相对 workspace)'
+    description: 'SARIF output filename (relative to workspace)'
     required: false
     default: 'sentinel.sarif'
 
 outputs:
   exit-code:
-    description: 'dsh-sentinel 退出码(0 通过 / 1 阈值被超过 / 2 运行错误 / 3 不完整扫描)'
+    description: 'dsh-sentinel exit code (0 ok / 1 threshold exceeded / 2 runtime error / 3 incomplete scan)'
     value: ${{ steps.run.outputs.exit-code }}
   sarif-path:
-    description: 'SARIF 文件绝对路径'
+    description: 'Absolute path of the SARIF file'
     value: ${{ steps.run.outputs.sarif-path }}
 
 runs:

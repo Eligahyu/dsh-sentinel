@@ -56,7 +56,8 @@ engine/
 plugin/index.js            DSH 插件入口:sentinel_scan / sentinel_scan_profile /
                            sentinel_audit_package
 scripts/                   benchmark(rule/finding/flow 三级)、规则文档生成、demo
-.github/actions/dsh-sentinel/  自包含 GitHub Action(composite + vendored acorn)
+action.yml                 根 GitHub Action(composite;vendored acorn 在
+                           .github/actions/dsh-sentinel/vendor/)
 ```
 
 ## 2. 扫描流水线

@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: Eligahyu/dsh-sentinel-scanner@v1
+      - uses: Eligahyu/dsh-sentinel-scanner@v0.4
         with:
           path: .
           mode: source      # source(默认)| package | profile
@@ -37,7 +37,7 @@ jobs:
           max-files: 3000
 
       - name: Upload SARIF to Code Scanning
-        if: always()
+        if: always() && hashFiles('sentinel.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: sentinel.sarif

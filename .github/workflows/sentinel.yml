@@ -1,9 +1,10 @@
 # 示例:PR / push 时自动扫描并上传 SARIF 到 GitHub Code Scanning。
 #
-# 注意:
-#   - SARIF 是报告交换格式,不是检测引擎;Action 只自动化运行,不增强检测能力
-#   - upload-sarif 需要 permissions.security-events: write
-#   - Action 内部失败(exit != 0)时 job 失败;上传步骤用 if: always() 保证仍执行
+# 结构(§7.7):scanner step continue-on-error → 无条件上传 SARIF(hashFiles 保护)
+# → final gate 依据 exit-code 使 job 失败。SARIF 永远先保留,再失败。
+#
+# 注意:upload-sarif 需要 permissions.security-events: write。
+
 name: DSH Sentinel
 
 on:
@@ -21,7 +22,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: Eligahyu/dsh-sentinel@v1
+      - name: Scan
+        id: scan
+        continue-on-error: true
+        uses: Eligahyu/dsh-sentinel-scanner@v0.4
         with:
           path: .
           mode: source
@@ -29,7 +33,17 @@ jobs:
           fail-on-incomplete: 'false'
 
       - name: Upload SARIF to Code Scanning
-        if: always()
+        if: always() && hashFiles('sentinel.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: sentinel.sarif
+
+      - name: Enforce Sentinel
+        if: always()
+        shell: bash
+        run: |
+          code="${{ steps.scan.outputs.exit-code }}"
+          if [ "$code" != "0" ]; then
+            echo "dsh-sentinel exit code: $code (0=ok 1=threshold-exceeded 2=runtime-error 3=incomplete-scan)"
+            exit "$code"
+          fi

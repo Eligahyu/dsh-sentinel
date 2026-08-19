@@ -1,0 +1,53 @@
+# Action smoke test(§7.8):在真实 runner 上验证根 Action 可运行。
+#   - clean-plugin → exit 0,SARIF 存在
+#   - evil-plugin(fail-on critical)→ exit 1,SARIF 仍存在
+# 使用本地 action(uses: ./),与用户以 Eligahyu/dsh-sentinel-scanner@v0.4 引用的
+# 代码完全相同(根 action.yml + bin/ + vendored acorn)。
+
+name: action-smoke
+
+on:
+  pull_request:
+  push:
+    branches: [master, main]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan clean fixture (expect exit 0)
+        id: clean
+        continue-on-error: true
+        uses: ./
+        with:
+          path: test/fixtures/clean-plugin
+          fail-on: critical
+
+      - name: Assert clean exit 0 and SARIF exists
+        shell: bash
+        run: |
+          code="${{ steps.clean.outputs.exit-code }}"
+          echo "clean exit-code=$code"
+          test "$code" = "0" || { echo "expected 0, got $code"; exit 1; }
+          test -f sentinel.sarif || { echo "SARIF missing"; exit 1; }
+
+      - name: Scan evil fixture with fail-on critical (expect exit 1)
+        id: evil
+        continue-on-error: true
+        uses: ./
+        with:
+          path: test/fixtures/evil-plugin
+          fail-on: critical
+
+      - name: Assert evil exit 1 and SARIF still exists
+        shell: bash
+        run: |
+          code="${{ steps.evil.outputs.exit-code }}"
+          echo "evil exit-code=$code"
+          test "$code" = "1" || { echo "expected 1, got $code"; exit 1; }
+          test -f sentinel.sarif || { echo "SARIF missing after threshold"; exit 1; }
