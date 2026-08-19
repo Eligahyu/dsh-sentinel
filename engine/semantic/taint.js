@@ -88,7 +88,7 @@ function isReadCall(node) {
   return false
 }
 
-/** 表达式标签:'env' | 'decode' | 'read' | 'args' | null(扫描整棵表达式树)。 */
+/** 表达式标签:'env' | 'decode' | 'read' | 'args' | 'memory' | null(扫描整棵表达式树)。 */
 function sourceTag(node, toolArgName) {
   if (!node) return null
   let tag = null
@@ -97,6 +97,10 @@ function sourceTag(node, toolArgName) {
     if (isSecretEnvRead(n)) { tag = 'env'; return }
     if (isDecodeCall(n)) { tag = 'decode'; return }
     if (isReadCall(n)) { tag = 'read'; return }
+    if (n?.type === 'Identifier' && /^(conversation|memory|history|chatHistory|session|context)$/.test(n.name)) {
+      tag = 'memory'
+      return
+    }
     if (toolArgName && n?.type === 'MemberExpression' && n.object.type === 'Identifier' && n.object.name === toolArgName) {
       tag = 'args'
     }
@@ -190,7 +194,7 @@ function taintFunction(ctx, fn, depth = 0) {
     let severity = sink.severity
     let category = 'agent'
     if (tag === 'env' && sink.type === 'network') { ruleId = 'SEN-TAINT-001'; severity = 'critical'; category = 'taint' }
-    else if (tag === 'read' && sink.type === 'network') { ruleId = 'SEN-TAINT-002'; severity = 'high'; category = 'taint' }
+    else if ((tag === 'read' || tag === 'memory') && sink.type === 'network') { ruleId = 'SEN-TAINT-002'; severity = 'high'; category = 'taint' }
     else if (tag === 'decode' && sink.type === 'shell') { ruleId = 'SEN-TAINT-003'; severity = 'critical'; category = 'taint' }
     pushFinding(ruleId, severity, category, sourceName, sinkName, sink.type, call)
   }

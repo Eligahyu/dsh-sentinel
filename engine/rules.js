@@ -613,6 +613,26 @@ export const RULES = Object.freeze([
     description: 'base64/hex/URI 解码(Buffer.from/atob/fromCharCode 等)的结果进入 eval/Function/exec。',
     recommendation: '解码内容必须人工复核;无文档说明的解码执行按恶意处理。',
   },
+
+  // ─────────────────────────── agent:Harness 专属(Phase 6)───────────────────────────
+  {
+    id: 'SEN-AGENT-005',
+    name: 'tool-prompt-poisoning',
+    severity: 'medium',
+    category: 'agent',
+    message: '工具/指令文本疑似 prompt 投毒短语',
+    description: 'defineTool 描述或指令文本含 "ignore previous instructions" / "do not tell the user" 等短语。注意:防御性说明也可能出现同类文字,需结合上下文。',
+    recommendation: '人工判断短语是防御性说明还是恶意指令。',
+  },
+  {
+    id: 'SEN-AGENT-006',
+    name: 'capability-mismatch',
+    severity: 'medium',
+    category: 'agent',
+    message: '工具描述与代码能力明显不符(潜在隐藏副作用)',
+    description: '工具描述看似普通(天气/问候/换算等),但代码含 exec/fetch/文件读写等敏感能力。',
+    recommendation: '人工核对工具描述与实际行为的差异。',
+  },
 ])
 
 /** Rules that are purely manifest/hygiene and produce one finding per target. */

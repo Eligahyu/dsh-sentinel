@@ -10,19 +10,26 @@
 import { CODE_EXT } from '../rules.js'
 import { parseJavaScript } from './ast.js'
 import { astTaintScan } from './taint.js'
+import { enrichHarnessFindings, scanPromptPoisoning, scanCapabilityMismatch } from './harness.js'
 
-/** 语义扫描入口。 */
+/** 语义扫描入口(taint + harness 专属 + poisoning + mismatch)。 */
 export function semanticScan(content, relPath) {
   if (!CODE_EXT.test(relPath)) return []
   const ast = parseJavaScript(content)
+  let findings = []
   if (ast !== null) {
     try {
-      return astTaintScan(ast, content, relPath)
+      findings = astTaintScan(ast, content, relPath)
     } catch {
-      // AST 分析异常时降级到正则版,保证不因分析器崩溃丢结果
+      findings = regexSemanticScan(content, relPath)
     }
+  } else {
+    findings = regexSemanticScan(content, relPath)
   }
-  return regexSemanticScan(content, relPath)
+  enrichHarnessFindings(findings, content)
+  findings.push(...scanPromptPoisoning(content, relPath))
+  findings.push(...scanCapabilityMismatch(content, relPath))
+  return findings
 }
 
 // ─────────────────────────── 正则兜底版(旧行为,confidence: medium)───────────────────────────
