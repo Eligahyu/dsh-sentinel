@@ -250,6 +250,25 @@ function taintFunction(ctx, fn, depth = 0) {
   const bodyNode = fn.bodyNode.type === 'BlockStatement' ? fn.bodyNode : { type: 'BlockStatement', body: [fn.bodyNode] }
   walk(bodyNode, (node) => {
     if (node.type === 'VariableDeclarator' && node.id.type === 'Identifier') declarators.push(node)
+    if (node.type === 'VariableDeclarator' && node.id.type === 'ObjectPattern' && node.init) {
+      // 解构污点(edge-destructure):const { command } = args → command 携带 args.command 污点
+      const src = node.init.type === 'Identifier' && node.init.name === fn.toolArgName
+        ? 'args' // 裸 toolArgName:const { command } = args
+        : sourceTag(node.init, fn.toolArgName)
+      if (src) {
+        const base = sourceNameInArg(node.init, fn.toolArgName)
+        for (const prop of node.id.properties) {
+          const local = prop.value?.name
+          if (!local || taints.has(local)) continue
+          // 直接解构 toolArgName 时 source 精确到属性名(args.command)
+          const precise = node.init.type === 'Identifier' && node.init.name === fn.toolArgName
+            && prop.key?.name
+            ? `${fn.toolArgName}.${prop.key.name}`
+            : base
+          taints.set(local, { tag: src, source: precise })
+        }
+      }
+    }
     if (node.type === 'CallExpression') calls.push(node)
   })
 

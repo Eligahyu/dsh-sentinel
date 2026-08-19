@@ -108,6 +108,11 @@ export const RULES = Object.freeze([
       { re: /(?<![.\w$])(?:exec|execSync|spawn|spawnSync)\s*\(/, needsImport: 'child_process' },
       { re: /\b(?:system|popen|shell_exec|os\.system|subprocess\.(?:run|Popen|call))\s*\(/ },
     ],
+    // 命令与参数均为静态常量时豁免(规则推荐语明示的安全形态):
+    //   spawn('git', ['status']) / exec('npm --version') / execFile('git', ['log'])
+    excludes: [
+      /(?:exec|execSync|execFile|execFileSync|spawn|spawnSync)\s*\(\s*['"][^'"]*['"]\s*(?:,\s*\[[^\]]*\])?\s*\)/,
+    ],
   },
   {
     id: 'SEN-EXEC-003',

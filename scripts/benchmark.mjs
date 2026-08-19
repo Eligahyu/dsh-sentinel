@@ -115,6 +115,30 @@ const rule = metrics(tp, fp, fn)
 const finding = metrics(ftp, ffp, ffn)
 const flow = metrics(ltp, lfp, lfn)
 
+// §16.4 分组:core malicious / core safe / evasion / hardening edge
+const GROUPS = [
+  { key: 'malicious/', label: 'core malicious' },
+  { key: 'safe/', label: 'core safe' },
+  { key: 'evasions/', label: 'evasion' },
+  { key: 'edge/', label: 'hardening edge' },
+]
+const groupStats = new Map(GROUPS.map((g) => [g.key, { label: g.label, tp: 0, fp: 0, fn: 0, items: 0 }]))
+for (const entry of MANIFEST) {
+  const g = GROUPS.find((x) => entry.file.startsWith(x.key))
+  if (!g) continue
+  const stat = groupStats.get(g.key)
+  stat.items += 1
+  const detected = new Set([])
+  // 重新计算该条目的 rule 级 TP/FP/FN(与主循环一致的逻辑)
+  const file = join(ROOT, 'test', 'fixtures', 'bench', entry.file)
+  const report = await scan(file)
+  const det = new Set(report.findings.map((f) => f.id))
+  const exp = new Set(entry.expects ?? [])
+  stat.tp += [...exp].filter((id) => det.has(id)).length
+  stat.fp += [...det].filter((id) => !exp.has(id)).length
+  stat.fn += [...exp].filter((id) => !det.has(id)).length
+}
+
 console.log('=== dsh-sentinel benchmark(rule / finding / flow) ===')
 console.log('file'.padEnd(42), 'exp', 'det', 'TP', 'FP', 'FN', 'F@l', 'FL@l', 'detected ids')
 for (const r of rows) {
@@ -128,4 +152,10 @@ console.log(`\nfinding-level metrics(位置 ±${LINE_TOLERANCE} 行,${findingMod
 console.log(`  precision      : ${finding.precision}\n  recall         : ${finding.recall}\n  F1             : ${finding.f1}`)
 console.log(`\nflow-level metrics(source→sink,${flowMode} 条带标注):`)
 console.log(`  precision      : ${flow.precision}\n  recall         : ${flow.recall}\n  F1             : ${flow.f1}`)
-console.log(`\n(带标注语料:${MANIFEST.length} 项,恶意/安全/绕过三组;finding 级 ${ftp}/${ftp + ffn} 命中,flow 级 ${ltp}/${ltp + lfn} 命中)`)
+console.log(`\n分组(rule-level,§16.4):`)
+for (const g of GROUPS) {
+  const s = groupStats.get(g.key)
+  const m = metrics(s.tp, s.fp, s.fn)
+  console.log(`  ${s.label.padEnd(15)} ${String(s.items).padEnd(3)} items  TP=${s.tp} FP=${s.fp} FN=${s.fn}  precision=${m.precision} recall=${m.recall} F1=${m.f1}`)
+}
+console.log(`\n(带标注语料:${MANIFEST.length} 项,恶意/安全/绕过/edge 四组;finding 级 ${ftp}/${ftp + ffn} 命中,flow 级 ${ltp}/${ltp + lfn} 命中)`)

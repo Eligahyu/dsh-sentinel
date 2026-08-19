@@ -123,7 +123,8 @@ export function regexSemanticScan(content, relPath) {
     const regionEnd = matchBrace(content, dm.index + dm[0].length - 1)
     if (regionEnd < 0) continue
     const region = content.slice(dm.index, regionEnd + 1)
-    const execRe = /\b(?:async\s+)?execute\s*(?::\s*(?:async\s*)?)?\(\s*([A-Za-z_$][\w$]*)\s*\)\s*(?:=>\s*)?\{/g
+    // execute(args) / execute(args: { command: string })(TS 标注,edge-ts-tool)
+    const execRe = /\b(?:async\s+)?execute\s*(?::\s*(?:async\s*)?)?\(\s*([A-Za-z_$][\w$]*)\s*(?::[^)]*)?\)\s*(?:=>\s*)?\{/g
     let em
     while ((em = execRe.exec(region)) !== null) {
       const bodyStart = em.index + em[0].length - 1
