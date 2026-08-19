@@ -24,6 +24,8 @@ export { parsePatchRows, resolvePatchEntry } from './scanner.js'
 export { inspectBundle } from './manifest.js'
 export { buildReport, verdictFor } from './report.js'
 export { semanticScan } from './semantic/index.js'
+export { auditPackageBeforeInstall, auditNpmSpec, auditVerdictFor } from './package/audit.js'
+export { loadConfig, mergeOverrides, DEFAULT_CONFIG } from './config.js'
 
 /** Resolve the DeepSeek Harness home: $DSH_HOME, else ~/.dsh (matches dsh). */
 export function resolveDshHome(env = process.env) {

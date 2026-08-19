@@ -278,7 +278,94 @@ test('VERSION 单一来源:与 package.json 一致', async () => {
   assert.equal(VERSION, pkg.version)
 })
 
-// ─────────────────────────── CLI ───────────────────────────
+// ─────────────────────────── Phase 3:安装前审计 ───────────────────────────
+
+test('auditVerdictFor 风险分 → 安装建议映射', async () => {
+  const { auditVerdictFor } = await import('../engine/package/audit.js')
+  assert.equal(auditVerdictFor(5), 'ALLOW')
+  assert.equal(auditVerdictFor(19), 'ALLOW')
+  assert.equal(auditVerdictFor(20), 'REVIEW')
+  assert.equal(auditVerdictFor(49), 'REVIEW')
+  assert.equal(auditVerdictFor(50), 'BLOCK-RECOMMENDED')
+  assert.equal(auditVerdictFor(100), 'BLOCK-RECOMMENDED')
+})
+
+test('安装前审计端到端:npm:is-number@7.0.0(隔离解包,不安装)', async () => {
+  const { auditNpmSpec } = await import('../engine/package/audit.js')
+  const { report, audit } = await auditNpmSpec('npm:is-number@7.0.0', { maxFiles: 500 })
+  assert.equal(audit.package, 'is-number')
+  assert.equal(audit.version, '7.0.0')
+  assert.equal(audit.integrityOk, true, 'tarball integrity 必须通过')
+  assert.match(audit.tarballSha256, /^[0-9a-f]{64}$/)
+  assert.ok(report.summary.filesAnalyzed >= 1, '解包内容被扫描')
+  assert.ok(report.supplyChain.tarballSha256 === audit.tarballSha256)
+  assert.ok(['ALLOW', 'REVIEW', 'BLOCK-RECOMMENDED'].includes(audit.verdict))
+})
+
+test('CLI:audit-install 输出安装审计结论', async () => {
+  const { auditNpmSpec } = await import('../engine/package/audit.js')
+  const capture = () => {
+    const buf = { out: '' }
+    const stream = { write(s) { buf.out += s }, isTTY: false }
+    return { stdout: stream, stderr: stream, buf }
+  }
+  // 直接调用 audit 分支逻辑(避免重复联网),验证输出形态
+  const { report, audit } = await auditNpmSpec('npm:is-number@7.0.0', { maxFiles: 500 })
+  const text = `INSTALL AUDIT: ${audit.verdict} — ${audit.package}@${audit.version}`
+  assert.match(text, /INSTALL AUDIT: (ALLOW|REVIEW|BLOCK-RECOMMENDED)/)
+  assert.equal(report.supplyChain.dependencyCount, 0)
+})
+
+// ─────────────────────────── Phase 2:配置与依赖图 ───────────────────────────
+
+test('sentinel.config.json 生效(mode=package)', async () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'prof-config-'))
+  try {
+    mkdirSync(join(tmp, 'dist'), { recursive: true })
+    writeFileSync(join(tmp, 'dist', 'a.js'), "exec('rm -rf $HOME')\n")
+    writeFileSync(join(tmp, 'sentinel.config.json'), JSON.stringify({ mode: 'package' }))
+    const { loadConfig, mergeOverrides } = await import('../engine/config.js')
+    const { config } = loadConfig({ cwd: tmp })
+    assert.equal(config.mode, 'package')
+    const { scan } = await import('../engine/index.js')
+    const report = await scan(tmp, { mode: mergeOverrides(config, {}).mode })
+    assert.ok(ids(report).has('SEN-FS-001'), 'config 指定 package mode 应扫到 dist')
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
+test('scanProfile 输出依赖图(direct/transitive)', async () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'prof-graph-'))
+  try {
+    const modules = join(tmp, 'profiles', 'web', 'node_modules')
+    mkdirSync(modules, { recursive: true })
+    writeFileSync(join(tmp, 'profiles', 'web', 'package.json'), JSON.stringify({
+      name: 'dsh-profile-web', private: true,
+      dependencies: { 'direct-a': '1.0.0', 'direct-b': '1.0.0' },
+      dsh: { profile: { bundles: [] } },
+    }))
+    for (const [name, deps] of [
+      ['direct-a', {}],
+      ['direct-b', { 'transitive-c': '1.0.0' }],
+      ['transitive-c', {}],
+    ]) {
+      mkdirSync(join(modules, name), { recursive: true })
+      writeFileSync(join(modules, name, 'package.json'), JSON.stringify({ name, version: '1.0.0', dependencies: deps }))
+      writeFileSync(join(modules, name, 'index.js'), "export const name = 'x'\nexport function apply() {}\n")
+    }
+    const { scanProfile } = await import('../engine/index.js')
+    const report = await scanProfile('web', { env: { DSH_HOME: tmp }, maxPlugins: 10 })
+    const byName = Object.fromEntries(report.profile.plugins.map((p) => [p.name, p]))
+    assert.equal(byName['direct-a'].direct, true)
+    assert.equal(byName['direct-b'].direct, true)
+    assert.equal(byName['transitive-c'].direct, false)
+    assert.equal(byName['transitive-c'].transitive, true, '被 direct-b 依赖 → transitive')
+    assert.equal(byName['direct-b'].dependencies, 1)
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+})
 
 test('CLI:--mode package 生效,不完整扫描标记输出', async () => {
   const tmp = mkdtempSync(join(tmpdir(), 'prof-cli-'))

@@ -29,6 +29,8 @@ function usage(out) {
 Usage:
   dsh-sentinel <path>                 scan a plugin repo/directory (or single file)
   dsh-sentinel --profile <name>       audit third-party plugins in a DSH profile
+  dsh-sentinel npm:<package>[@ver]    install-time audit of an npm package (quarantine, no install)
+  dsh-sentinel audit-install <pkg>    same as npm:<pkg>
   dsh-sentinel --rules                print the rule catalog
 
 Options:
@@ -143,6 +145,12 @@ export async function main(argv, io = { stdout: process.stdout, stderr: process.
       maxFiles: opts.maxFiles,
       includeBuiltins: opts.includeBuiltins ? true : undefined,
     })
+    // 安装前审计:audit-install <pkg> 或 npm:<pkg>
+    const auditSpec = positional[0] === 'audit-install' ? positional[1] : positional[0]?.startsWith('npm:') ? positional[0] : null
+    if (auditSpec) {
+      const { auditNpmSpec } = await import('../engine/package/audit.js')
+      return { __audit: await auditNpmSpec(auditSpec, { maxFiles: effective.maxFiles }) }
+    }
     if (opts.profile !== undefined) {
       return scanProfile(opts.profile, {
         maxPlugins: opts.maxPlugins,
@@ -161,6 +169,20 @@ export async function main(argv, io = { stdout: process.stdout, stderr: process.
   try {
     const result = await run
     if (result === null) return 2
+    if (result.__audit) {
+      const { report, audit } = result.__audit
+      const verdictEmoji = { ALLOW: '✅', REVIEW: '👀', 'BLOCK-RECOMMENDED': '🚫' }[audit.verdict] ?? '❓'
+      stdout.write(`\n${verdictEmoji} INSTALL AUDIT: ${audit.verdict} — ${audit.package}@${audit.version}\n`)
+      stdout.write(`  tarball sha256: ${audit.tarballSha256}\n`)
+      stdout.write(`  integrity: ${audit.integrityOk ? 'OK' : `FAIL (${audit.integrityReason ?? 'unknown'})`}\n`)
+      stdout.write(`  dependencies: ${audit.dependencyCount} · install scripts: ${audit.installScripts.join(', ') || 'none'}\n`)
+      if (opts.json) {
+        stdout.write(JSON.stringify(report, null, 2) + '\n')
+      } else {
+        formatText(report, stdout)
+      }
+      return audit.verdict === 'BLOCK-RECOMMENDED' ? 1 : 0
+    }
     if (opts.out) {
       const { writeFileSync } = await import('node:fs')
       writeFileSync(opts.out, JSON.stringify(result, null, 2) + '\n')

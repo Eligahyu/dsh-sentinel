@@ -127,5 +127,34 @@ export function apply(ctx) {
     },
   }))
 
-  ctx.logger?.info(`[sentinel] dsh-sentinel ${VERSION} loaded — sentinel_scan / sentinel_scan_profile registered`)
+  ctx.tools.register(defineTool({
+    name: 'sentinel_audit_package',
+    description:
+      'Install-time audit of an npm package BEFORE installation: downloads the tarball to a quarantine directory, ' +
+      'verifies integrity (sha512), extracts WITHOUT running any install scripts, statically scans it in package mode, ' +
+      'and returns a report plus an ALLOW / REVIEW / BLOCK-RECOMMENDED verdict. Never executes the package code.',
+    parameters: {
+      package: {
+        type: 'string',
+        required: true,
+        description: 'npm package spec, e.g. "some-plugin" or "some-plugin@1.2.3".',
+      },
+      maxFiles: {
+        type: 'integer',
+        description: 'Optional cap on scanned files.',
+      },
+    },
+    output: {
+      schema: OUTPUT_SCHEMA,
+      render: renderReport,
+    },
+    timeoutMs: 300000,
+    async execute(args) {
+      const { auditNpmSpec } = await import('../engine/package/audit.js')
+      const { report, audit } = await auditNpmSpec(args.package, { maxFiles: args.maxFiles ?? undefined })
+      return { ...report, audit }
+    },
+  }))
+
+  ctx.logger?.info(`[sentinel] dsh-sentinel ${VERSION} loaded — sentinel_scan / sentinel_scan_profile / sentinel_audit_package registered`)
 }

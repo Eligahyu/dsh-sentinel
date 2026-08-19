@@ -53,10 +53,11 @@ test('plugin registers sentinel_scan + sentinel_scan_profile and executes a real
       },
     }
     plugin.apply(fakeCtx)
-    assert.equal(registered.length, 2)
+    assert.equal(registered.length, 3)
     const names = registered.map((d) => d.name)
     assert.ok(names.includes('sentinel_scan'))
     assert.ok(names.includes('sentinel_scan_profile'))
+    assert.ok(names.includes('sentinel_audit_package'))
 
     // Execute the scan tool against the evil fixture: dangerous + render text.
     const scanTool = registered.find((d) => d.name === 'sentinel_scan')
