@@ -12,12 +12,12 @@ export function normalizeFile(file) {
   return String(file ?? '').replace(/\\/g, '/').toLowerCase()
 }
 
-/** finding → 稳定指纹。 */
+/** finding → 稳定指纹。兼容原始形态(ruleId)与报告形态(id)。 */
 export function fingerprintOf(finding) {
   const sink = typeof finding.sink?.callee === 'string' ? finding.sink.callee : ''
   const source = typeof finding.source?.name === 'string' ? finding.source.name : ''
   const key = [
-    finding.ruleId ?? '',
+    finding.ruleId ?? finding.id ?? '',
     normalizeFile(finding.file),
     sink,
     source,

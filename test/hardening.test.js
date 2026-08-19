@@ -593,3 +593,79 @@ export function apply(ctx) {
   assert.ok(findings.some((f) => f.ruleId === 'SEN-AGENT-001' && f.sink.callee === 'eval'), 'eval 免绑定')
   assert.ok(findings.some((f) => f.ruleId === 'SEN-AGENT-004' && f.sink.callee === 'fetch'), 'fetch 免绑定')
 })
+
+// ---- P1-5: Report 保留 semantic evidence ----
+
+test('semantic finding 携带完整 evidence(flowSteps/columns/toolName)', async () => {
+  const { semanticScan } = await import('../engine/semantic/index.js')
+  const src = `
+import { exec } from 'node:child_process'
+export function apply(ctx) {
+  ctx.tools.register(defineTool({
+    name: 'danger-tool',
+    async execute(args) {
+      exec(args.command)
+    },
+  }))
+}`
+  const hit = semanticScan(src, 'a.js').find((f) => f.ruleId === 'SEN-AGENT-001')
+  assert.ok(hit, '应命中')
+  assert.deepEqual(hit.flowSteps, ['args.command', 'exec'])
+  assert.equal(hit.functionName, 'execute')
+  assert.equal(hit.toolName, 'danger-tool')
+  assert.ok(hit.startColumn >= 1)
+  assert.ok(hit.endLine >= hit.line)
+  assert.ok(hit.endColumn >= 1)
+})
+
+test('buildReport 透传 evidence 并附加稳定 fingerprint(P1-6 闭环)', async () => {
+  const { buildReport } = await import('../engine/report.js')
+  const { fingerprintOf } = await import('../engine/report/fingerprint.js')
+  const parts = {
+    kind: 'path',
+    path: '/tmp/x',
+    name: 'x',
+    findings: [
+      {
+        ruleId: 'SEN-AGENT-001', severity: 'critical', category: 'agent', confidence: 'high',
+        message: 'm', file: 'a.js', line: 5, snippet: 's', recommendation: '',
+        source: { name: 'args.command' }, sink: { callee: 'exec' },
+        flow: ['args.command', 'exec(...)'], flowSteps: ['args.command', 'exec'],
+        functionName: 'execute', toolName: 'danger-tool', startColumn: 6, endLine: 5, endColumn: 22,
+        ssrfTarget: true,
+      },
+    ],
+    findingsTotal: 1,
+    filesAnalyzed: 1,
+    filesDiscovered: 1,
+    scanComplete: true,
+    scanCoverage: {},
+    manifest: {},
+    filesSkipped: { binary: 0, big: 0, dirs: 0, ignored: 0 },
+    scanMs: 0,
+  }
+  const report = buildReport(parts)
+  const f = report.findings[0]
+  assert.equal(f.fingerprint, fingerprintOf({ ruleId: 'SEN-AGENT-001', file: 'a.js', source: { name: 'args.command' }, sink: { callee: 'exec' } }))
+  assert.deepEqual(f.flowSteps, ['args.command', 'exec'])
+  assert.equal(f.functionName, 'execute')
+  assert.equal(f.toolName, 'danger-tool')
+  assert.equal(f.startColumn, 6)
+  assert.equal(f.endLine, 5)
+  assert.equal(f.endColumn, 22)
+  assert.equal(f.ssrfTarget, true)
+})
+
+test('SARIF:稳定指纹在 dshFingerprint,不冒充 primaryLocationLineHash', async () => {
+  const { scan } = await import('../engine/index.js')
+  const { toSarif } = await import('../engine/output/sarif.js')
+  const root = mkdtempSync(join(tmpdir(), 'sarif-ev-'))
+  writeFileSync(join(root, 'a.js'), `import { exec } from 'node:child_process'\nexport function apply(ctx) {\n  ctx.tools.register(defineTool({\n    name: 't',\n    async execute(args) {\n      exec(args.command)\n    },\n  }))\n}`)
+  const report = await scan(join(root, 'a.js'))
+  const sarif = toSarif(report)
+  const result = sarif.runs[0].results.find((r) => r.ruleId === 'SEN-AGENT-001')
+  assert.ok(result, 'SARIF 含语义命中')
+  assert.equal(result.partialFingerprints, undefined, '不得冒充 primaryLocationLineHash')
+  assert.match(result.properties.dshFingerprint, /^[0-9a-f]{64}$/)
+  assert.equal(result.locations[0].physicalLocation.region.startColumn, 7)
+})

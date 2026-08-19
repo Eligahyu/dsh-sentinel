@@ -461,7 +461,9 @@ test('SARIF:相对路径 + 稳定指纹 + severity 映射', async () => {
   for (const r of sarif.runs[0].results) {
     const uri = r.locations[0].physicalLocation.artifactLocation.uri
     assert.ok(!uri.includes(':'), `SARIF 不应含盘符绝对路径,got ${uri}`)
-    assert.ok(r.partialFingerprints.primaryLocationLineHash.length >= 32)
+    // P1-6 §15.3:稳定指纹在内部属性 dshFingerprint,不冒充 primaryLocationLineHash
+    assert.equal(r.partialFingerprints, undefined, '不得使用 primaryLocationLineHash')
+    assert.match(r.properties.dshFingerprint, /^[0-9a-f]{64}$/)
     assert.ok(['error', 'warning', 'note'].includes(r.level))
   }
 })

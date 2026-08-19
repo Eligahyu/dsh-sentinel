@@ -47,19 +47,37 @@ export function toSarif(report, opts = {}) {
       })
     }
   }
-  const results = (report.findings ?? []).map((f) => ({
-    ruleId: f.id,
-    level: SEVERITY_LEVEL[f.severity] ?? 'warning',
-    message: { text: `${f.message}${f.detail ? ` — ${f.detail}` : ''}` },
-    locations: [{
-      physicalLocation: {
-        artifactLocation: { uri: toUri(f.file) },
-        region: { startLine: f.line ?? 1 },
+  const results = (report.findings ?? []).map((f) => {
+    const result = {
+      ruleId: f.id,
+      level: SEVERITY_LEVEL[f.severity] ?? 'warning',
+      message: { text: `${f.message}${f.detail ? ` — ${f.detail}` : ''}` },
+      locations: [{
+        physicalLocation: {
+          artifactLocation: { uri: toUri(f.file) },
+          region: {
+            startLine: f.line ?? 1,
+            ...(f.startColumn ? { startColumn: f.startColumn } : {}),
+            ...(f.endLine ? { endLine: f.endLine } : {}),
+            ...(f.endColumn ? { endColumn: f.endColumn } : {}),
+          },
+        },
+      }],
+      // P1-6 §15.3:不冒充 primaryLocationLineHash;稳定指纹放内部属性 dshFingerprint
+      properties: {
+        severity: f.severity,
+        confidence: f.confidence ?? 'medium',
+        dshFingerprint: fingerprintOf(f),
+        ...(f.flow ? { flow: f.flow } : {}),
+        ...(f.flowSteps ? { flowSteps: f.flowSteps } : {}),
+        ...(f.source?.name ? { source: f.source.name } : {}),
+        ...(f.sink?.callee ? { sink: f.sink.callee } : {}),
+        ...(f.toolName ? { toolName: f.toolName } : {}),
+        ...(f.ssrfTarget ? { ssrfTarget: true } : {}),
       },
-    }],
-    partialFingerprints: { primaryLocationLineHash: fingerprintOf(f).slice(0, 32) },
-    properties: { severity: f.severity, confidence: f.confidence ?? 'medium' },
-  }))
+    }
+    return result
+  })
   return {
     $schema: 'https://json.schemastore.org/sarif-2.1.0.json',
     version: '2.1.0',

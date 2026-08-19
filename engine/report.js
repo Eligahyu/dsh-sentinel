@@ -17,6 +17,7 @@
 import { SEVERITY_ORDER, CATEGORIES, severityWeight } from './rules.js'
 import { VERSION } from './version.js'
 import { redactSecrets } from './redact.js'
+import { attachFingerprints } from './report/fingerprint.js'
 
 export const VERDICTS = Object.freeze({
   safe: { min: 0, max: 19, label: 'safe', emoji: '✅' },
@@ -172,6 +173,14 @@ export function buildReport(parts, maxFindings = 300) {
         ...(f.source ? { source: f.source } : {}),
         ...(f.sink ? { sink: f.sink } : {}),
         ...(f.flow ? { flow: f.flow } : {}),
+        ...(f.flowSteps ? { flowSteps: f.flowSteps } : {}),
+        ...(f.functionName ? { functionName: f.functionName } : {}),
+        ...(f.enclosingFunction ? { enclosingFunction: f.enclosingFunction } : {}),
+        ...(f.toolName ? { toolName: f.toolName } : {}),
+        ...(f.startColumn ? { startColumn: f.startColumn } : {}),
+        ...(f.endLine ? { endLine: f.endLine } : {}),
+        ...(f.endColumn ? { endColumn: f.endColumn } : {}),
+        ...(f.ssrfTarget ? { ssrfTarget: true } : {}),
         ...(f.detail ? { detail: f.detail } : {}),
       }
     })
@@ -179,7 +188,7 @@ export function buildReport(parts, maxFindings = 300) {
   const findingsReturned = capped.length
   const findingsTruncated = findingsTotal > findingsReturned
 
-  return {
+  const report = {
     schemaVersion: 2,
     tool: 'dsh-sentinel',
     version: VERSION,
@@ -242,4 +251,7 @@ export function buildReport(parts, maxFindings = 300) {
       largestFiles: (parts.largestFiles ?? []).map((f) => ({ file: f.file, bytes: f.bytes })),
     },
   }
+  // P1-6 方案 B:在报告层附加稳定指纹(字段裁剪后仍保有 source/sink,指纹完整)。
+  attachFingerprints(report)
+  return report
 }

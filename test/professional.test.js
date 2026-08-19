@@ -566,7 +566,8 @@ test('SARIF 输出:规则与结果齐全', async () => {
   const critical = sarif.runs[0].results.find((r) => r.properties.severity === 'critical')
   assert.ok(critical, 'critical 结果存在')
   assert.equal(critical.level, 'error')
-  assert.ok(critical.partialFingerprints.primaryLocationLineHash)
+  assert.equal(critical.partialFingerprints, undefined, '不得使用 primaryLocationLineHash')
+  assert.match(critical.properties.dshFingerprint, /^[0-9a-f]{64}$/)
 })
 
 test('baseline 对比:new / resolved 分类', async () => {

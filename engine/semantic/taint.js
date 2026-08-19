@@ -116,6 +116,17 @@ function lineSnippet(content, node) {
   return { line, snippet: text.length > 240 ? text.slice(0, 239) + '…' : text }
 }
 
+/** offset → 1-based 列号。 */
+function columnOf(content, offset) {
+  const lineStart = content.lastIndexOf('\n', Math.max(0, offset - 1)) + 1
+  return offset - lineStart + 1
+}
+
+/** offset → 1-based 行号。 */
+function lineOfOffset(content, offset) {
+  return content.slice(0, offset).split('\n').length
+}
+
 /** 表达式是否为 env 凭据读取(process.env['API_KEY'] / process.env['OPEN'+'AI_API_KEY'] 等)。 */
 function isSecretEnvRead(node) {
   if (node?.type !== 'MemberExpression') return false
@@ -277,6 +288,14 @@ function taintFunction(ctx, fn, depth = 0) {
       source: { type: 'tool-argument', name: sourceName },
       sink: { type: sinkType, callee: sinkName },
       flow: [sourceName, `${sinkName}(...)`],
+      // P1-5:semantic evidence 完整保留(供 fingerprint/SARIF/baseline/IDE)
+      flowSteps: [sourceName, sinkName],
+      functionName: 'execute',
+      enclosingFunction: fn.toolArgName ? `execute(${fn.toolArgName})` : 'execute',
+      ...(fn.toolName ? { toolName: fn.toolName } : {}),
+      startColumn: columnOf(content, call.start),
+      endLine: lineOfOffset(content, call.end),
+      endColumn: columnOf(content, call.end),
     })
   }
 
@@ -395,10 +414,15 @@ export function astTaintScan(ast, content, relPath) {
     if (node.type === 'CallExpression' && calleeName(node.callee) === 'defineTool') {
       const obj = node.arguments[0]
       if (obj?.type === 'ObjectExpression') {
+        let toolName = null
+        for (const prop of obj.properties) {
+          const key = prop.key?.name ?? staticStringOf(prop.key)
+          if (key === 'name') toolName = staticStringOf(prop.value) ?? prop.value?.name ?? null
+        }
         for (const prop of obj.properties) {
           const key = prop.key?.name ?? staticString(prop.key)
           if (key === 'execute' && (prop.value?.type === 'FunctionExpression' || prop.value?.type === 'ArrowFunctionExpression')) {
-            executeFns.push(prop.value)
+            executeFns.push({ fn: prop.value, toolName })
           }
         }
       }
@@ -409,12 +433,13 @@ export function astTaintScan(ast, content, relPath) {
   const findings = []
 
   // 1) execute(args) 上下文(SEN-AGENT)
-  for (const fn of executeFns) {
+  for (const { fn, toolName } of executeFns) {
     const argName = fn.params[0]?.name ?? 'args'
     const hits = taintFunction({ ...ctx, paramTaints: new Map() }, {
       bodyNode: fn.body,
       params: fn.params.map((p) => p.name).filter(Boolean),
       toolArgName: argName,
+      toolName,
       localFunctions,
     }, 0)
     for (const h of hits) findings.push(h)
