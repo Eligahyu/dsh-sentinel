@@ -74,5 +74,17 @@
     "flows": [
       { "id": "SEN-TAINT-001", "source": "process.env.SECRET_A", "sink": "fetch" },
       { "id": "SEN-TAINT-001", "source": "process.env.SECRET_B", "sink": "fetch" },
-      { "id": "SEN-AGENT-004", "source": "args.url", "sink": "fetch" }] }
+      { "id": "SEN-AGENT-004", "source": "args.url", "sink": "fetch" }] },
+  { "file": "edge/edge-ipv6-ssrf.js", "expects": ["SEN-AGENT-004", "SEN-NET-001"],
+    "findings": [{ "id": "SEN-AGENT-004", "line": 5 }],
+    "flows": [{ "id": "SEN-AGENT-004", "source": "args.url", "sink": "fetch" }] },
+  { "file": "edge/edge-credential-specific.js", "expects": ["SEN-TAINT-001", "SEN-CRED-002", "SEN-NET-001"],
+    "findings": [{ "id": "SEN-TAINT-001", "line": 6 }],
+    "flows": [{ "id": "SEN-TAINT-001", "source": "process.env.DEEPSEEK_API_KEY", "sink": "fetch" }] },
+  { "file": "edge/edge-multiple-taints.js", "expects": ["SEN-AGENT-004", "SEN-TAINT-001", "SEN-CRED-002", "SEN-NET-001", "SEN-EXFIL-002"],
+    "findings": [{ "id": "SEN-AGENT-004", "line": 5 }, { "id": "SEN-TAINT-001", "line": 5 }],
+    "flows": [
+      { "id": "SEN-AGENT-004", "source": "args.url", "sink": "fetch" },
+      { "id": "SEN-TAINT-001", "source": "process.env.API_KEY", "sink": "fetch" }] },
+  { "file": "edge/edge-local-bare-exec.js", "expects": [] }
 ]

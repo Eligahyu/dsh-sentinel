@@ -5,7 +5,7 @@
   "type": "module",
   "license": "MIT",
   "engines": {
-    "node": ">=22.18.0"
+    "node": "^22.18.0 || >=24.11.0"
   },
   "main": "engine/index.js",
   "exports": {
@@ -22,6 +22,7 @@
     "engine",
     "plugin",
     "bin",
+    "action.yml",
     "cordis.patch.yml",
     "README.md",
     "CHANGELOG.md",

@@ -679,7 +679,9 @@ test('version consistency:package.json == package-lock == VERSION == 0.4.0', asy
   assert.equal(pkg.version, '0.4.0')
   assert.equal(lock.packages[''].version, pkg.version)
   assert.equal(VERSION, pkg.version)
-  assert.ok(pkg.engines.node.startsWith('>='), 'engines 声明 Node 基线')
+  // engines 与 parser runtime 精确对齐(^22.18.0 || >=24.11.0)
+  assert.match(pkg.engines.node, /22\.18/, 'engines 覆盖 Node 22.18')
+  assert.match(pkg.engines.node, /24\.11/, 'engines 覆盖 Node 24.11')
 })
 
 // ---- §17.4 关键词覆盖(最终测试证据必须可见) ----

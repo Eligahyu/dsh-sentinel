@@ -62,6 +62,23 @@ outputs:
 runs:
   using: composite
   steps:
+    # 安全红线:绝不在被扫描项目执行 npm install/npm ci——
+    # 安装必须定向到 ${{ github.action_path }}(dsh-sentinel 自己的依赖),
+    # 且强制 --ignore-scripts(最小执行面,防未来依赖出现 lifecycle 脚本)。
+    # 兜底:引擎自带 vendored acorn(.github/actions/dsh-sentinel/vendor/),
+    # 即使安装失败/离线,扫描仍可运行。
+    - name: Install dsh-sentinel runtime dependencies
+      shell: bash
+      run: |
+        if [ -f "${{ github.action_path }}/package-lock.json" ]; then
+          npm ci \
+            --prefix "${{ github.action_path }}" \
+            --omit=dev \
+            --ignore-scripts \
+            --no-audit \
+            --no-fund
+        fi
+
     - name: Run dsh-sentinel
       id: run
       shell: bash

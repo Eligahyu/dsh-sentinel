@@ -32,21 +32,25 @@ edge/edge-trusted-comment-bypass.js        2   2   2   0   0   1/1  1/1  SEN-AGE
 edge/edge-trusted-fake-domain.js           2   2   2   0   0   1/1  1/1  SEN-AGENT-004,SEN-NET-001
 edge/edge-ts-tool.ts                       2   2   2   0   0   1/1  1/1  SEN-AGENT-001,SEN-EXEC-002
 edge/edge-two-same-flows.js                4   4   4   0   0   2/2  3/3  SEN-TAINT-001,SEN-CRED-002,SEN-EXFIL-002,SEN-AGENT-004
+edge/edge-ipv6-ssrf.js                     2   2   2   0   0   1/1  1/1  SEN-AGENT-004,SEN-NET-001
+edge/edge-credential-specific.js           3   3   3   0   0   1/1  1/1  SEN-TAINT-001,SEN-CRED-002,SEN-NET-001
+edge/edge-multiple-taints.js               5   5   5   0   0   2/2  2/2  SEN-TAINT-001,SEN-EXFIL-002,SEN-AGENT-004,SEN-CRED-002,SEN-NET-001
+edge/edge-local-bare-exec.js               0   0   0   0   0   —    —    —
 
 rule-level metrics:
-  true positives : 51
+  true positives : 61
   false positives: 3
   false negatives: 0
-  precision      : 0.944
+  precision      : 0.953
   recall         : 1.000
-  F1             : 0.971
+  F1             : 0.976
 
-finding-level metrics(位置 ±2 行,22 条带标注):
-  precision      : 0.906
+finding-level metrics(位置 ±2 行,25 条带标注):
+  precision      : 0.917
   recall         : 1.000
-  F1             : 0.951
+  F1             : 0.957
 
-flow-level metrics(source→sink,21 条带标注):
+flow-level metrics(source→sink,24 条带标注):
   precision      : 1.000
   recall         : 1.000
   F1             : 1.000
@@ -55,6 +59,6 @@ flow-level metrics(source→sink,21 条带标注):
   core malicious  8   items  TP=18 FP=3 FN=0  precision=0.857 recall=1.000 F1=0.923
   core safe       4   items  TP=2 FP=0 FN=0  precision=1.000 recall=1.000 F1=1.000
   evasion         4   items  TP=5 FP=0 FN=0  precision=1.000 recall=1.000 F1=1.000
-  hardening edge  12  items  TP=26 FP=0 FN=0  precision=1.000 recall=1.000 F1=1.000
+  hardening edge  16  items  TP=36 FP=0 FN=0  precision=1.000 recall=1.000 F1=1.000
 
-(带标注语料:28 项,恶意/安全/绕过/edge 四组;finding 级 29/29 命中,flow 级 24/24 命中)
+(带标注语料:32 项,恶意/安全/绕过/edge 四组;finding 级 33/33 命中,flow 级 28/28 命中)
