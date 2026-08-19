@@ -16,6 +16,24 @@ const PLUGINS = [
   'Small-tailqwq/dsh-deep-whale',
   'ccch1mneyyy/working-activity',
   'zhu1090093659/dsh-web-ui',
+  // —— 网关 / 基础设施类(本轮重点:IM 网关、桥接、MCP、远程隧道、通知网关)——
+  'zhuiyueya/dsh-im-gateway',
+  'xmanrui/dsh-im',
+  'tencent-connect/dsh-qqbot',
+  'omdsh-dev/dsh-lark',
+  'AX1202/ax-feishu-bridge',
+  'chushixixin/dsh-harness-mcp-server',
+  'flymysql/dsh-remote',
+  'Chinesezjc/dsh-interconnect',
+  'THEWOLFWALKER/dsh-notifier',
+  'titanwings/dsh-automation',
+  // —— 其他生态插件 ——
+  'bowenliang123/dsh-context',
+  'liustack/modsearch',
+  'omdsh-dev/dsh-notification',
+  // —— 上次失败的补抓 ——
+  'Small-tailqwq/dsh-deep-whale',
+  'ccch1mneyyy/working-activity',
 ]
 
 // 沙箱限制:不能通过管道捕获子进程 stdout,curl 用 -o 直接落盘再读文件。

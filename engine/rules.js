@@ -275,16 +275,20 @@ export const RULES = Object.freeze([
     name: 'encoded-payload',
     severity: 'high',
     category: 'obfuscation',
-    message: '代码中存在大段编码载荷(base64 / 十六进制 / unicode 转义)',
-    description: '源码中出现超过 200 字符的 base64、连续 40+ 个 \\x 十六进制转义或 20+ 个 \\u unicode 转义。混淆是恶意插件最常见的自我保护手段。',
+    message: '代码中存在大段编码载荷(base64 / 十六进制转义)',
+    description: '源码中出现超过 200 字符的 base64、连续 40+ 个 \\x 十六进制转义或 80+ 字符的纯字母数字长串。注:\\uXXXX unicode 转义不算——那是转译器/压缩器对非 ASCII 文本(i18n 文案等)的常规处理,在中文生态里普遍存在。',
     recommendation: '先解码再判断:若解码结果是可读代码或数据且无文档说明,按恶意处理。',
     filePattern: CODE,
     ignoreComments: true,
     linePatterns: [
       { re: /[A-Za-z0-9+/]{200,}={0,2}/ },
       { re: /(?:\\x[0-9a-fA-F]{2}){40,}/ },
-      { re: /(?:\\u[0-9a-fA-F]{4}){20,}/ },
       { re: /(?:\b[A-Za-z0-9+/]{80,}\b)/ },
+    ],
+    // 内嵌资源(data:image/font 的 base64 URI)是客户端插件的常规做法,不算载荷。
+    excludes: [
+      /data:image\/(?:png|jpe?g|gif|webp|svg\+xml|ico|avif);base64,/i,
+      /data:font\/(?:woff2?|ttf|otf);base64,/i,
     ],
   },
   {

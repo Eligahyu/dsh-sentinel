@@ -15,15 +15,26 @@
 | --- | --- | --- | --- | --- |
 | dsh-market(插件市场) | 🚨 dangerous | 100/100 | 12(src 12) | bundle |
 | modlens(视觉) | ⚠️ risky | 64/100 | 8(src 8) | bundle |
+| ax-feishu-bridge(飞书桥) | ⚠️ risky | 60/100 | 6(src 6) | bundle |
 | dsh-TUI(终端 UI) | ⚠️ risky | 56/100 | 7(src 7) | bundle |
 | whale-girl(桌宠) | 👀 review | 48/100 | 6(src 6) | bundle |
 | DSH-better-sidebar(侧边栏) | 👀 review | 44/100 | 4(src 4) | bundle |
+| dsh-interconnect(跨实例转发) | 👀 review | 40/100 | 2(src 2) | bundle |
+| dsh-qqbot(腾讯官方 QQ Bot) | 👀 review | 40/100 | 2(src 2) | bundle |
+| dsh-lark(飞书通道) | 👀 review | 28/100 | 2(src 2) | bundle |
 | dsh-vision-toolkit(视觉) | 👀 review | 24/100 | 3(src 3) | bundle |
+| working-activity(活动行) | 👀 review | 20/100 | 1(src 1) | 非 bundle |
 | dsh-web-ui(UI 合集) | 👀 review | 20/100 | 1(src 1) | 非 bundle |
 | dsh-memory-evolve(记忆) | ✅ safe | 16/100 | 2(src 2) | bundle |
+| dsh-remote(SSH 反向隧道) | ✅ safe | 16/100 | 2(src 2) | bundle |
+| dsh-harness-mcp-server(MCP 服务) | ✅ safe | 8/100 | 1(src 1) | 非 bundle |
 | dsh-ads(整活) | ✅ safe | 8/100 | 1(src 1) | bundle |
 | dsh-agent-teams(Agent 团队) | ✅ safe | 8/100 | 1(src 1) | bundle |
 | dsh-deep-whale(皮肤) | ✅ safe | 8/100 | 1(src 1) | 非 bundle |
+| dsh-notifier(8 渠道通知网关) | ✅ safe | 8/100 | 1(src 1) | bundle |
+| dsh-automation(定时任务) | ✅ safe | 8/100 | 1(src 1) | bundle |
+| dsh-im-gateway(IM 聚合网关) | ✅ safe | 8/100 | 1(src 1) | bundle |
+| dsh-im(8 渠道 IM 桥) | ✅ safe | 0/100 | 0(src 0) | bundle |
 
 ## 主要命中明细
 
@@ -33,10 +44,38 @@
 - 命中 3 条(source 3)
 - 无 critical/high 级 source 命中
 
+### ax-feishu-bridge(飞书桥)
+
+- 裁决:⚠️ risky · 60/100
+- 命中 6 条(source 6)
+- critical/high 命中:
+  - `SEN-MAN-006` ax-feishu-bridge\harness:1 — 插件入口无效(缺少 name 或 apply 导出):ax-feishu-bridge/harness
+
 ### dsh-TUI(终端 UI)
 
 - 裁决:⚠️ risky · 56/100
 - 命中 7 条(source 7)
+- 无 critical/high 级 source 命中
+
+### working-activity(活动行)
+
+- 裁决:👀 review · 20/100
+- 命中 1 条(source 1)
+- critical/high 命中:
+  - `SEN-MAN-002` package.json:1 — 不是 DSH bundle(缺少 dsh.bundle 声明)
+
+### dsh-interconnect(跨实例转发)
+
+- 裁决:👀 review · 40/100
+- 命中 2 条(source 2)
+- critical/high 命中:
+  - `SEN-MAN-006` dsh-interconnect\interconnect:1 — 插件入口无效(缺少 name 或 apply 导出):dsh-interconnect/interconnect
+  - `SEN-MAN-006` dsh-interconnect\tool-interconnect:1 — 插件入口无效(缺少 name 或 apply 导出):dsh-interconnect/tool-interconnect
+
+### dsh-harness-mcp-server(MCP 服务)
+
+- 裁决:✅ safe · 8/100
+- 命中 1 条(source 1)
 - 无 critical/high 级 source 命中
 
 ### dsh-memory-evolve(记忆)
@@ -51,6 +90,12 @@
 - 命中 12 条(source 12)
 - critical/high 命中:
   - `SEN-MAN-006` dshmarket:1 — 插件入口无效(缺少 name 或 apply 导出):dshmarket
+
+### dsh-remote(SSH 反向隧道)
+
+- 裁决:✅ safe · 16/100
+- 命中 2 条(source 2)
+- 无 critical/high 级 source 命中
 
 ### modlens(视觉)
 
@@ -77,7 +122,34 @@
 - critical/high 命中:
   - `SEN-MAN-006` dsh-better-sidebar:1 — 插件入口无效(缺少 name 或 apply 导出):dsh-better-sidebar
 
+### dsh-lark(飞书通道)
+
+- 裁决:👀 review · 28/100
+- 命中 2 条(source 2)
+- critical/high 命中:
+  - `SEN-MAN-006` dsh-lark-channel:1 — 插件入口无效(缺少 name 或 apply 导出):dsh-lark-channel
+
 ### dsh-deep-whale(皮肤)
+
+- 裁决:✅ safe · 8/100
+- 命中 1 条(source 1)
+- 无 critical/high 级 source 命中
+
+### dsh-qqbot(腾讯官方 QQ Bot)
+
+- 裁决:👀 review · 40/100
+- 命中 2 条(source 2)
+- critical/high 命中:
+  - `SEN-MAN-006` @tencent-connect\dsh-qqbot:1 — 插件入口无效(缺少 name 或 apply 导出):@tencent-connect/dsh-qqbot
+  - `SEN-CRED-002` src\index.ts:44 — 读取环境变量中的凭据(API key / token / secret)
+
+### dsh-notifier(8 渠道通知网关)
+
+- 裁决:✅ safe · 8/100
+- 命中 1 条(source 1)
+- 无 critical/high 级 source 命中
+
+### dsh-automation(定时任务)
 
 - 裁决:✅ safe · 8/100
 - 命中 1 条(source 1)
@@ -89,12 +161,24 @@
 - 命中 6 条(source 6)
 - 无 critical/high 级 source 命中
 
+### dsh-im(8 渠道 IM 桥)
+
+- 裁决:✅ safe · 0/100
+- 命中 0 条(source 0)
+- 无 critical/high 级 source 命中
+
 ### dsh-web-ui(UI 合集)
 
 - 裁决:👀 review · 20/100
 - 命中 1 条(source 1)
 - critical/high 命中:
   - `SEN-MAN-002` package.json:1 — 不是 DSH bundle(缺少 dsh.bundle 声明)
+
+### dsh-im-gateway(IM 聚合网关)
+
+- 裁决:✅ safe · 8/100
+- 命中 1 条(source 1)
+- 无 critical/high 级 source 命中
 
 ## 说明与免责
 

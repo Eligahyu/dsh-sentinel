@@ -24,6 +24,17 @@ const REPO_LABELS = {
   'vlln__whale-girl': 'whale-girl(桌宠)',
   'csyangwen__dsh-memory-evolve': 'dsh-memory-evolve(记忆)',
   'Small-tailqwq__dsh-deep-whale': 'dsh-deep-whale(皮肤)',
+  'ccch1mneyyy__working-activity': 'working-activity(活动行)',
+  'zhuiyueya__dsh-im-gateway': 'dsh-im-gateway(IM 聚合网关)',
+  'xmanrui__dsh-im': 'dsh-im(8 渠道 IM 桥)',
+  'tencent-connect__dsh-qqbot': 'dsh-qqbot(腾讯官方 QQ Bot)',
+  'omdsh-dev__dsh-lark': 'dsh-lark(飞书通道)',
+  'AX1202__ax-feishu-bridge': 'ax-feishu-bridge(飞书桥)',
+  'chushixixin__dsh-harness-mcp-server': 'dsh-harness-mcp-server(MCP 服务)',
+  'flymysql__dsh-remote': 'dsh-remote(SSH 反向隧道)',
+  'Chinesezjc__dsh-interconnect': 'dsh-interconnect(跨实例转发)',
+  'THEWOLFWALKER__dsh-notifier': 'dsh-notifier(8 渠道通知网关)',
+  'titanwings__dsh-automation': 'dsh-automation(定时任务)',
 }
 
 const rows = []

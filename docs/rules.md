@@ -16,7 +16,7 @@
 | `SEN-EXFIL-001` | 🔴 critical(45 分) | exfiltration | **suspicious-endpoint** | 代码向已知的"接收任意数据"类服务发起请求:webhook.site、requestbin、pastebin、Discord webhook、Telegram bot、ngrok/serveo 隧道、oast/interactsh 等。 |
 | `SEN-EXFIL-002` | 🟠 high(20 分) | exfiltration | **network-with-secrets** | 网络请求的参数/头/体中拼接了 process.env 或密钥变量,存在把凭据外传的风险。 |
 | `SEN-EXFIL-003` | 🟡 medium(8 分) | exfiltration | **encoded-env-in-network** | 请求前对 env/密钥做 base64 或编码处理,通常用于规避 URL 字符限制或检测。 |
-| `SEN-OBF-001` | 🟠 high(20 分) | obfuscation | **encoded-payload** | 源码中出现超过 200 字符的 base64、连续 40+ 个 \x 十六进制转义或 20+ 个 \u unicode 转义。混淆是恶意插件最常见的自我保护手段。 |
+| `SEN-OBF-001` | 🟠 high(20 分) | obfuscation | **encoded-payload** | 源码中出现超过 200 字符的 base64、连续 40+ 个 \x 十六进制转义或 80+ 字符的纯字母数字长串。注:\uXXXX unicode 转义不算——那是转译器/压缩器对非 ASCII 文本(i18n 文案等)的常规处理,在中文生态里普遍存在。 |
 | `SEN-OBF-002` | 🟡 medium(8 分) | obfuscation | **minified-single-line** | 单个代码行超过 30KB。合法插件也可能打包产物,但超长单行是隐藏恶意逻辑的常用手法,需人工解压审阅。 |
 | `SEN-OBF-003` | 🟢 low(3 分) | obfuscation | **decode-then-exec** | decodeURIComponent/unescape/fromCharCode 与 eval/Function 出现在同一文件。 |
 | `SEN-INST-001` | 🟡 medium(8 分) | install | **install-script-present** | npm 安装时会自动执行这些脚本,运行在用户完整权限下、不在任何沙箱之内。注:DSH 官方对 git 安装的 TS bundle 也要求 prepare 构建脚本,因此仅"存在"本身不是恶意——需要人工确认脚本内容。 |

@@ -232,19 +232,25 @@ test('same-rule spam on one file is capped at 10 findings', async () => {
   }
 })
 
-test('escaped CJK comments (minified) do not trip the encoded-payload rule', async () => {
+test('escaped CJK strings/comments (i18n tables) do not trip the encoded-payload rule', async () => {
   const tmp = mkdtempSync(join(process.env.TEMP ?? '/tmp', 'sentinel-ucomment-'))
   try {
-    // A long escaped-CJK comment line (as produced by minifiers/ES5 targets).
     const esc = '\\u72B6\\u6001\\u5361'.repeat(10)
-    writeFileSync(join(tmp, 'c.js'), `/* ${esc} */\nconst x = 1\n`)
-    const safe = await scan(join(tmp, 'c.js'))
-    assert.equal(safe.findings.some((f) => f.id === 'SEN-OBF-001'), false, 'comment escapes are not payloads')
+    // i18n dictionary entries (code strings) — standard transpiler output.
+    writeFileSync(join(tmp, 'i18n.js'), `const dict = { "${esc}": "status card" }\n`)
+    const safe = await scan(join(tmp, 'i18n.js'))
+    assert.equal(safe.findings.some((f) => f.id === 'SEN-OBF-001'), false, '\\u escapes in strings are not payloads')
 
-    // The same escapes inside a code string remain suspicious.
-    writeFileSync(join(tmp, 'p.js'), `const payload = '${esc}'\n`)
-    const flagged = await scan(join(tmp, 'p.js'))
-    assert.equal(flagged.findings.some((f) => f.id === 'SEN-OBF-001'), true, 'code-string escapes must flag')
+    // \x hex runs remain suspicious.
+    writeFileSync(join(tmp, 'x.js'), `const p = '${'\\x65'.repeat(50)}'\n`)
+    const flagged = await scan(join(tmp, 'x.js'))
+    assert.equal(flagged.findings.some((f) => f.id === 'SEN-OBF-001'), true, '\\x runs must flag')
+
+    // Embedded data:image base64 URIs (logos/icons) are not payloads.
+    const png = 'iVBORw0KGgoAAAANSUhEUg'.padEnd(260, 'A') + '=='
+    writeFileSync(join(tmp, 'logo.js'), `const LOGO = "data:image/png;base64,${png}"\n`)
+    const logo = await scan(join(tmp, 'logo.js'))
+    assert.equal(logo.findings.some((f) => f.id === 'SEN-OBF-001'), false, 'data:image base64 is an embedded asset')
   } finally {
     rmSync(tmp, { recursive: true, force: true })
   }
