@@ -1,11 +1,17 @@
 /**
  * Report assembly: scoring, verdict, and the canonical JSON shape.
  *
- * The emitted object is the exact schema the DSH tools validate against, so
- * every key is always present (empty strings/arrays where not applicable).
+ * 完整度契约:
+ *   - findings 上限只影响 findingsReturned,不影响实际分析(filesAnalyzed)
+ *   - 任何截断(scanComplete=false)都会强制裁决不低于 review 并显式标记
+ *   - 所有 snippet 中的 secret 一律脱敏(redactSecrets),绝不二次泄露
+ *
+ * The emitted object keeps every legacy key for compatibility.
  */
 
 import { SEVERITY_ORDER, CATEGORIES, severityWeight } from './rules.js'
+import { VERSION } from './version.js'
+import { redactSecrets } from './redact.js'
 
 export const VERDICTS = Object.freeze({
   safe: { min: 0, max: 19, label: 'safe', emoji: '✅' },
@@ -27,6 +33,12 @@ export const TEST_SEVERITY_DOWNGRADE = Object.freeze({
   low: 'info',
   info: 'info',
 })
+
+/**
+ * 压缩/打包产物(bundleFile)同样降一级计分:压缩代码里 eval/Function/长 base64
+ * 可能是转译器产物,信号强但精度低——照常列出并打标,权重让位于人工复核。
+ */
+export const BUNDLE_SEVERITY_DOWNGRADE = TEST_SEVERITY_DOWNGRADE
 
 /**
  * Heuristic: is this relative path a test file or under a test directory?
@@ -53,20 +65,8 @@ export function emptyCounts() {
 
 /**
  * Build the canonical report object.
- * @param {object} parts
- * @param {string} parts.kind - 'path' | 'profile'
- * @param {string} parts.path - absolute scan root or profile node_modules root
- * @param {string} parts.name - profile name (kind === 'profile')
- * @param {Array} parts.findings - raw findings ({ruleId, severity, category, message, file, line, snippet, recommendation, package?})
- * @param {object} parts.manifest - normalized manifest object
- * @param {number} parts.filesScanned
- * @param {object} parts.filesSkipped
- * @param {object} parts.languages
- * @param {Array} parts.largestFiles
- * @param {Array} parts.pluginsScanned
- * @param {Array} parts.pluginsSkipped
- * @param {number} parts.scanMs
- * @param {number} maxFindings
+ * @param {object} parts - 见调用方;新增完整度字段:
+ *   findingsTotal, filesAnalyzed, filesDiscovered, scanComplete, scanCoverage
  */
 export function buildReport(parts, maxFindings = 300) {
   const counts = emptyCounts()
@@ -80,11 +80,26 @@ export function buildReport(parts, maxFindings = 300) {
     else contextCounts.source += 1
     counts.bySeverity[f.severity] = (counts.bySeverity[f.severity] ?? 0) + 1
     counts.byCategory[f.category] = (counts.byCategory[f.category] ?? 0) + 1
-    const weighted = inTest ? TEST_SEVERITY_DOWNGRADE[f.severity] ?? f.severity : f.severity
+    let weighted = f.severity
+    if (inTest) weighted = TEST_SEVERITY_DOWNGRADE[f.severity] ?? f.severity
+    else if (f.bundleFile) weighted = BUNDLE_SEVERITY_DOWNGRADE[f.severity] ?? f.severity
     score += severityWeight(weighted)
   }
   score = Math.min(100, score)
-  const verdict = verdictFor(score)
+  let verdict = verdictFor(score)
+
+  const scanComplete = parts.scanComplete !== false
+  const findingsTotal = parts.findingsTotal ?? total
+  const findingsReturned = Math.min(total, maxFindings)
+  const findingsTruncated = findingsTotal > findingsReturned
+
+  // 不完整扫描绝不能显示 clean:强制至少 review 并显式标记。
+  if (!scanComplete) {
+    if (verdict.label === 'safe') {
+      score = Math.max(score, 20)
+      verdict = verdictFor(score)
+    }
+  }
 
   const order = { critical: 0, high: 1, medium: 2, low: 3, info: 4 }
   const seen = new Set()
@@ -97,22 +112,33 @@ export function buildReport(parts, maxFindings = 300) {
     })
     .sort((a, b) => order[a.severity] - order[b.severity] || a.file.localeCompare(b.file) || a.line - b.line)
     .slice(0, maxFindings)
-    .map((f) => ({
-      id: f.ruleId,
-      severity: f.severity,
-      category: f.category,
-      message: f.message,
-      file: f.file,
-      line: f.line ?? 1,
-      snippet: f.snippet ?? '',
-      recommendation: f.recommendation ?? '',
-      package: f.package ?? '',
-      testFile: isTestPath(f.file),
-    }))
+    .map((f) => {
+      const redacted = redactSecrets(f.snippet ?? '')
+      return {
+        id: f.ruleId,
+        severity: f.severity,
+        category: f.category,
+        confidence: f.confidence ?? 'medium',
+        message: f.message,
+        file: f.file,
+        line: f.line ?? 1,
+        snippet: redacted.text,
+        recommendation: f.recommendation ?? '',
+        package: f.package ?? '',
+        testFile: isTestPath(f.file),
+        ...(redacted.redacted ? { redacted: true, secretFingerprints: redacted.fingerprints } : {}),
+        ...(f.analysisMode ? { analysisMode: f.analysisMode } : {}),
+        ...(f.bundleFile ? { bundleFile: true } : {}),
+        ...(f.source ? { source: f.source } : {}),
+        ...(f.sink ? { sink: f.sink } : {}),
+        ...(f.flow ? { flow: f.flow } : {}),
+      }
+    })
 
   return {
+    schemaVersion: 2,
     tool: 'dsh-sentinel',
-    version: '0.1.0',
+    version: VERSION,
     scannedAt: new Date().toISOString(),
     target: {
       kind: parts.kind,
@@ -122,13 +148,29 @@ export function buildReport(parts, maxFindings = 300) {
     summary: {
       verdict: verdict.label,
       score,
-      filesScanned: parts.filesScanned,
+      // 完整度
+      scanComplete,
+      incompleteScan: !scanComplete,
+      filesDiscovered: parts.filesDiscovered ?? parts.filesScanned ?? 0,
+      filesAnalyzed: parts.filesAnalyzed ?? parts.filesScanned ?? 0,
+      findingsTotal,
+      findingsReturned,
+      findingsTruncated,
+      // 兼容旧字段
+      filesScanned: parts.filesAnalyzed ?? parts.filesScanned ?? 0,
       filesSkipped: parts.filesSkipped?.binary ?? 0,
       totalFindings: total,
       bySeverity: counts.bySeverity,
       byCategory: counts.byCategory,
       byContext: contextCounts,
       scanMs: parts.scanMs,
+    },
+    scanCoverage: parts.scanCoverage ?? {
+      sourceFiles: 0,
+      buildFiles: 0,
+      binaryFiles: parts.filesSkipped?.binary ?? 0,
+      largeFiles: 0,
+      parseFailures: 0,
     },
     manifest: parts.manifest,
     profile: {

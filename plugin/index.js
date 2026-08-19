@@ -34,7 +34,10 @@ function renderReport(_args, value) {
   const emoji = { safe: '✅', review: '👀', risky: '⚠️', dangerous: '🚨' }[s.verdict] ?? '❓'
   const lines = []
   lines.push(`${emoji} dsh-sentinel ${value.version} — ${s.verdict.toUpperCase()} (risk score ${s.score}/100)`)
-  lines.push(`scanned ${s.filesScanned} files · ${s.totalFindings} findings: ` +
+  if (s.scanComplete === false) {
+    lines.push('⚠ INCOMPLETE SCAN — 扫描不完整(文件数/大小受限),结果仅代表已分析部分')
+  }
+  lines.push(`scanned ${s.filesAnalyzed}/${s.filesDiscovered} files · ${s.findingsTotal} findings (returned ${s.findingsReturned}): ` +
     `critical ${s.bySeverity.critical} · high ${s.bySeverity.high} · medium ${s.bySeverity.medium} · low ${s.bySeverity.low} · info ${s.bySeverity.info}`)
   const m = value.manifest
   if (m?.name) {
@@ -82,6 +85,10 @@ export function apply(ctx) {
         type: 'integer',
         description: 'Optional cap on scanned files (default 3000).',
       },
+      mode: {
+        type: 'string',
+        description: 'Scan mode: source (default, skips dist/build) | package (includes build artifacts) | profile.',
+      },
     },
     output: {
       schema: OUTPUT_SCHEMA,
@@ -89,7 +96,7 @@ export function apply(ctx) {
     },
     timeoutMs: 120000,
     async execute(args) {
-      return scan(args.path, { maxFiles: args.maxFiles ?? undefined })
+      return scan(args.path, { maxFiles: args.maxFiles ?? undefined, mode: args.mode ?? undefined })
     },
   }))
 

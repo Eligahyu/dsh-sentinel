@@ -8,6 +8,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join, dirname, basename } from 'node:path'
 import { parsePatchRows, resolvePatchEntry, readMaybe, hasExportContract } from './scanner.js'
+import { resolveInside } from './path-safety.js'
 
 export function readJson(absPath) {
   const text = readMaybe(absPath)
@@ -62,11 +63,20 @@ export function inspectBundle(root) {
   }
 
   if (isBundle && patchRel) {
-    const patchAbs = join(root, patchRel)
-    if (!existsSync(patchAbs)) {
+    let patchAbs
+    try {
+      // containment:patch 路径必须解析在包根之内。
+      patchAbs = resolveInside(root, patchRel)
+    } catch {
+      findings.push(finding('SEN-MAN-009', 'critical', 'manifest',
+        `dsh.bundle.patch 路径逃逸扫描根目录:${patchRel}`, 'package.json', 1,
+        '拒绝该包或修复 manifest 路径;所有路径必须解析在包根目录之内。'))
+      patchAbs = null
+    }
+    if (patchAbs !== null && !existsSync(patchAbs)) {
       findings.push(finding('SEN-MAN-003', 'high', 'manifest', `声明的 patch 文件不存在:${patchRel}`, 'package.json', 1,
         '核对 files 列表与 patch 路径。'))
-    } else {
+    } else if (patchAbs !== null) {
       const patchText = readMaybe(patchAbs) ?? ''
       const rows = parsePatchRows(patchText)
       if (rows.length === 0) {
@@ -81,7 +91,15 @@ export function inspectBundle(root) {
         }
         if (!row.name) continue
         if (row.name.startsWith('cordis:') || row.name.startsWith('@deepseek-ai/')) continue
-        const entry = resolvePatchEntry(root, row.name, name)
+        let entry
+        try {
+          entry = resolvePatchEntry(root, row.name, name)
+        } catch {
+          findings.push(finding('SEN-MAN-009', 'critical', 'manifest',
+            `patch 入口名逃逸扫描根目录:${row.name}`, patchRel, 1,
+            '拒绝该包或修复 manifest 路径;所有路径必须解析在包根目录之内。'))
+          continue
+        }
         if (entry === null) {
           findings.push(finding('SEN-MAN-005', 'medium', 'manifest', `patch 引用的插件模块无法解析:${row.name}`, patchRel))
           continue

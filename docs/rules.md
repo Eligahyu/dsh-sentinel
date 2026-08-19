@@ -1,6 +1,6 @@
 # 规则目录 / Rule Catalog
 
-共 31 条启发式规则。启发式 ≠ 判决:命中只表示"需要人工复核",不代表插件一定恶意。
+共 36 条启发式规则。启发式 ≠ 判决:命中只表示"需要人工复核",不代表插件一定恶意。
 
 | ID | 严重度(权重) | 类别 | 规则 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -35,6 +35,11 @@
 | `SEN-MAN-006` | 🟠 high(20 分) | manifest | **plugin-entry-invalid** | 入口模块未导出 Cordis 插件协议要求的 name/apply,加载会失败或静默无行为。 |
 | `SEN-MAN-007` | 🟢 low(3 分) | hygiene | **license-missing** | package.json 未声明 license,安装与再分发存在法律风险。 |
 | `SEN-MAN-008` | 🟢 low(3 分) | hygiene | **description-missing** | package.json 未声明 description。 |
+| `SEN-MAN-009` | 🔴 critical(45 分) | manifest | **manifest-path-escape** | package.json 的 dsh.bundle.patch、main、exports 或 cordis.patch.yml 的入口名指向扫描根目录之外(如 ../../Users/xxx/.ssh)。攻击者可借此让扫描器读取目标目录之外的文件。 |
+| `SEN-AGENT-001` | 🔴 critical(45 分) | agent | **model-controlled-shell** | defineTool 的 execute(args) 中,模型可控参数(args.*)直接或经变量传播进入 shell 执行器。 |
+| `SEN-AGENT-002` | 🟠 high(20 分) | agent | **model-controlled-file-read** | 模型可控参数进入文件读取调用,若无 workspace containment 则模型可读任意文件。 |
+| `SEN-AGENT-003` | 🟠 high(20 分) | agent | **model-controlled-file-write** | 模型可控参数进入文件写入调用,可写 HOME / 系统目录 / DSH profile / 其他插件目录。 |
+| `SEN-AGENT-004` | 🟠 high(20 分) | agent | **model-controlled-network-target** | 模型可控参数成为网络请求 URL,即 SSRF / 任意出网能力面。 |
 
 权重:critical=50 · high=20 · medium=8 · low=3 · info=0,总分封顶 100。
 

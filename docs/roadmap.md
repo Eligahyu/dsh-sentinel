@@ -33,11 +33,23 @@
 
 ## 🧭 版本规划
 
-### v0.2(近期)
-- HTML 报告(单文件,内嵌样式,可直接分享)
-- `--ignore <pattern>` / 项目级 `sentinel.config.json`
-- 规则命中上下文(前后 N 行)而非单行 snippet
-- 扫描缓存(按文件 hash,增量扫描大仓库)
+### v0.2 ✅(2026-08-19,按专业版升级任务书 Phase-1 完成)
+- [x] 扫描完整性:maxFindings 不再提前停扫,findingsTotal/findingsReturned/scanComplete 如实上报;不完整扫描强制 review + INCOMPLETE 标记
+- [x] 三种扫描模式 source/package/profile;package/profile 模式必扫 dist/build/lib/out;profile 扫描自动排除扫描器自身
+- [x] 大文件策略:512KB–20MB 走 large-file-lite 分析(复用规则子集 + hash + analysisMode 标记),不再简单跳过
+- [x] 路径 containment:`engine/path-safety.js`,manifest 全部路径(patch/main/exports/入口名)防逃逸,SEN-MAN-009
+- [x] 入口契约严格化:name 与 apply 必须同时存在(ESM/default 对象/CJS 三形态)
+- [x] secret 脱敏:`engine/redact.js`,报告只保留指纹,CLI/JSON 均无完整 secret
+- [x] VERSION 单一来源 `engine/version.js`;schemaVersion 2
+- [x] 语义引擎骨架 `engine/semantic`:defineTool execute(args) 污点分析(SEN-AGENT-001/002/003/004),含别名与多步传播(confidence: medium,待 AST 升级)
+- [x] 压缩产物降权:minified bundle 命中打标并降一级计分(转译器噪声)
+- [x] SECURITY.md、41 项测试(positive/negative/evasion)
+
+### v0.3
+- AST 正式解析(acorn/@babel)+ confidence high
+- Harness 专属:prompt/tool poisoning、SSRF 细化、workspace/memory 外传
+- SARIF 输出 + finding fingerprint + baseline
+- `--fail-on` / `--strict-exit-codes`
 
 ### v0.3
 - GitHub Action + 徽章服务

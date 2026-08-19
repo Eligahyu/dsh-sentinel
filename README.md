@@ -33,13 +33,16 @@ DeepSeek Harness 插件生态在爆发:截至 2026-08,仅 [awesome-dsh-plugin](h
 
 | 能力 | 说明 |
 | --- | --- |
-| 🔍 规则引擎 | 30+ 条启发式规则,覆盖 9 大类别(见 [规则目录](docs/rules.md)) |
+| 🔍 规则引擎 | 30+ 条启发式规则,12 大类别(含 agent/taint/supplychain,见 [规则目录](docs/rules.md)) |
+| 🧠 语义引擎 | defineTool `execute(args)` 污点分析:`args.* → shell/文件/网络`(SEN-AGENT 系列),识别别名与跨变量传播 |
 | 🎯 双重形态 | DSH 工具插件(`sentinel_scan` / `sentinel_scan_profile`)+ 独立 CLI |
-| 📦 清单体检 | 校验 `dsh.bundle` / `cordis.patch.yml` / 插件入口导出契约(对照 DSH loader 行为) |
-| 🧹 全量审计 | `sentinel_scan_profile` 一键扫描 profile 里所有**第三方**插件(内置 `@deepseek-ai/*` 自动跳过,命中项标注所属包) |
-| 📊 量化裁决 | 0–100 风险分 + `safe / review / risky / dangerous` 四级裁决,CI 友好退出码 |
-| 🔒 只读安全 | 不执行被扫描代码、不跟随符号链接、跳过二进制,扫描器本身零依赖 |
-| 🧪 自带验证 | 11 项自动化测试 + 恶意/正常/损坏三种 fixture |
+| 📦 清单体检 | `dsh.bundle` / `cordis.patch.yml` / 入口契约(name+apply 必须同时存在)/ **路径 containment**(逃逸即 SEN-MAN-009) |
+| 🧹 全量审计 | `sentinel_scan_profile` 以 **package mode** 扫描 profile 第三方插件(含 dist/build/lib 构建产物,内置包与扫描器自身自动排除) |
+| 📊 量化裁决 | 0–100 风险分 + 四级裁决;**扫描完整性如实上报**(scanComplete / filesAnalyzed / findingsTruncated),不完整扫描绝不显示 clean |
+| 📐 三种扫描模式 | `source`(默认,跳过构建产物)/ `package`(必扫 dist/build)/ `profile` |
+| 🔒 只读安全 | 不执行被扫描代码、不跟随符号链接、manifest 路径防逃逸、大文件走 lite 分析不跳过 |
+| 🕶️ 隐私保护 | 报告中的 **secret 一律脱敏**(只保留指纹,绝不二次泄露) |
+| 🧪 自带验证 | 41 项自动化测试(positive/negative/evasion)+ 多套 fixture |
 
 ## 快速开始
 
@@ -84,7 +87,8 @@ npx dsh-sentinel <插件目录>            # 或 node bin/sentinel.mjs <目录>
 
 # CI 集成:exit 0 = safe/review,exit 1 = risky/dangerous
 dsh-sentinel ./some-plugin --json --out report.json
-dsh-sentinel --profile web            # 审计整个 profile 的第三方插件
+dsh-sentinel --profile web            # 审计整个 profile 的第三方插件(package mode)
+dsh-sentinel ./repo --mode package    # 扫描模式:source(默认)/package/profile
 dsh-sentinel --rules                  # 打印规则目录
 ```
 
@@ -167,7 +171,7 @@ node bin/sentinel.mjs engine
 ## 开发
 
 ```sh
-npm test            # 23 项测试(引擎 + CLI + 插件加载冒烟)
+npm test            # 41 项测试(引擎 + CLI + 插件加载冒烟 + 专业版功能)
 npm run docs:rules  # 从规则目录重新生成 docs/rules.md
 npm run demo        # 生成 docs/example-report.json
 npm run scan:self   # 扫描器扫自己(狗粮)

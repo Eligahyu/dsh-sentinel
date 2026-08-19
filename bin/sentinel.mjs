@@ -36,6 +36,7 @@ Options:
   --out <file>    write the report to a file (JSON), print a summary to stdout
   --max-files <n> cap scanned files (default 3000)
   --max-plugins <n> cap plugins scanned per profile (default 12)
+  --mode <mode>   scan mode: source(默认,跳过 dist/build) | package(扫构建产物) | profile
   -h, --help      show this help
 
 Exit codes: 0 = safe/review, 1 = risky/dangerous, 2 = usage error.
@@ -50,6 +51,9 @@ function formatText(report, out) {
   const banner = `${emoji} ${color(sevColor, s.verdict.toUpperCase(), tty)} — risk score ${s.score}/100`
   out.write(`\n${banner}\n`)
   out.write('─'.repeat(Math.min(72, banner.length + 12)) + '\n')
+  if (s.scanComplete === false) {
+    out.write(`${color(31, '⚠ INCOMPLETE SCAN — 扫描不完整,结果仅代表已分析部分', tty)}\n`)
+  }
   out.write(`target        ${report.target.kind === 'profile' ? `profile "${report.target.name}"` : report.target.path}\n`)
   const m = report.manifest
   if (m?.name) out.write(`manifest      ${m.name}${m.version ? `@${m.version}` : ''} · isBundle=${m.isBundle}${m.patch ? ` · patch=${m.patch}` : ''}\n`)
@@ -57,8 +61,9 @@ function formatText(report, out) {
     out.write(`plugins       ${report.profile.pluginsScanned.join(', ') || '(none)'}\n`)
     if (report.profile.pluginsSkipped.length > 0) out.write(`skipped       ${report.profile.pluginsSkipped.length} (built-ins / others)\n`)
   }
-  out.write(`files         ${s.filesScanned} scanned (${s.filesSkipped} binary skipped)\n`)
-  out.write(`findings      ${s.totalFindings} total · ` +
+  out.write(`files         ${s.filesAnalyzed}/${s.filesDiscovered} analyzed` +
+    ` (${report.scanCoverage?.buildFiles ?? 0} build · ${report.scanCoverage?.largeFiles ?? 0} large-lite · ${s.filesSkipped ?? 0} binary)\n`)
+  out.write(`findings      ${s.findingsTotal} total(返回 ${s.findingsReturned}) · ` +
     SEVERITY_ORDER.map((sev) => `${SEV_LABEL[sev]} ${s.bySeverity[sev]}`).join(' · ') + '\n')
   out.write(`context       source ${s.byContext?.source ?? 0} · test ${s.byContext?.test ?? 0} (test 文件命中降一级计分)\n`)
   out.write(`categories    ` +
@@ -71,16 +76,17 @@ function formatText(report, out) {
       const loc = f.package ? `${f.package}:${f.file}:${f.line}` : `${f.file}:${f.line}`
       const sev = SEV_LABEL[f.severity].padEnd(8)
       const sevCode = { critical: 31, high: 33, medium: 33, low: 0, info: 0 }[f.severity] ?? 0
-      const tag = f.testFile ? ' (test)' : ''
+      const tag = `${f.testFile ? ' (test)' : ''}${f.bundleFile ? ' (bundle)' : ''}${f.redacted ? ' (secret redacted)' : ''}`
       out.write(`  ${color(sevCode, sev, tty)} ${f.id} ${loc}${tag}\n`)
       out.write(`    ${f.message}\n`)
       if (f.snippet) out.write(`    ${f.snippet.slice(0, 120)}${f.snippet.length > 120 ? '…' : ''}\n`)
     }
-    if (report.findings.length < s.totalFindings) {
-      out.write(`  … ${s.totalFindings - report.findings.length} more findings\n`)
+    if (report.findings.length < s.findingsTotal) {
+      out.write(`  … ${s.findingsTotal - report.findings.length} more findings(总数 ${s.findingsTotal})\n`)
     }
   } else {
-    out.write('\nno findings — clean.\n')
+    out.write('\n当前启用规则未发现问题;这不等价于插件已被证明安全。\n')
+    out.write('No findings detected by enabled rules; this does not prove the plugin is safe.\n')
   }
   out.write('\n')
 }
@@ -102,6 +108,15 @@ export async function main(argv, io = { stdout: process.stdout, stderr: process.
           stdout.write(`${r.id} [${r.severity.padEnd(8)}] ${r.category.padEnd(12)} ${r.name} — ${r.message}\n`)
         }
         return 0
+      }
+      case '--mode': {
+        const mode = args[++i]
+        if (!['source', 'package', 'profile'].includes(mode)) {
+          stderr.write(`dsh-sentinel: --mode must be source|package|profile (got ${mode})\n`)
+          return 2
+        }
+        opts.mode = mode
+        break
       }
       case '-h': case '--help': usage(stdout); return 0
       default:
@@ -125,7 +140,7 @@ export async function main(argv, io = { stdout: process.stdout, stderr: process.
       usage(stderr)
       return null
     }
-    return scan(positional[0], { maxFiles: opts.maxFiles })
+    return scan(positional[0], { maxFiles: opts.maxFiles, mode: opts.mode })
   })()
 
   try {

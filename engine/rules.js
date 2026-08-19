@@ -33,10 +33,17 @@ export const CATEGORIES = Object.freeze([
   'network',
   'manifest',
   'hygiene',
+  // 专业版新增类别
+  'agent',        // Harness Tool / 模型可控输入
+  'taint',        // 污点传播
+  'supplychain',  // 供应链
+  'binary',       // 二进制
+  'persistence',  // 持久化
 ])
 
 /** Shared fragment: any JS-adjacent code file. */
-const CODE = /\.(?:[cm]?js|jsx|ts|tsx|mts|cts|py|rb|php|pl|sh|bash|zsh|ps1|go|rs|java|kt|m|mm|swift|vue|svelte)$/i
+export const CODE_EXT = /\.(?:[cm]?js|jsx|ts|tsx|mts|cts|py|rb|php|pl|sh|bash|zsh|ps1|go|rs|java|kt|m|mm|swift|vue|svelte)$/i
+const CODE = CODE_EXT
 
 /** Hardcoded-secret detector used by SEN-CRED-003 (kept private, exported below). */
 const SECRET_PATTERNS = [
@@ -529,6 +536,53 @@ export const RULES = Object.freeze([
     message: '缺少描述(description 字段)',
     description: 'package.json 未声明 description。',
     recommendation: '补上简短描述。',
+  },
+  {
+    id: 'SEN-MAN-009',
+    name: 'manifest-path-escape',
+    severity: 'critical',
+    category: 'manifest',
+    message: 'manifest 路径逃逸扫描根目录(patch / main / exports / 入口名)',
+    description: 'package.json 的 dsh.bundle.patch、main、exports 或 cordis.patch.yml 的入口名指向扫描根目录之外(如 ../../Users/xxx/.ssh)。攻击者可借此让扫描器读取目标目录之外的文件。',
+    recommendation: '拒绝该包或修复 manifest 路径;所有路径必须解析在包根目录之内。',
+  },
+
+  // ─────────────────────────── agent(Harness Tool 语义规则,由 semantic 引擎产生)───────────────────────────
+  {
+    id: 'SEN-AGENT-001',
+    name: 'model-controlled-shell',
+    severity: 'critical',
+    category: 'agent',
+    message: '模型可控输入进入 shell 执行(execute(args) → exec/spawn)',
+    description: 'defineTool 的 execute(args) 中,模型可控参数(args.*)直接或经变量传播进入 shell 执行器。',
+    recommendation: '拒绝把模型输入直接拼进 shell 命令;用参数数组形式 spawn(cmd, [args]) 并做白名单校验。',
+  },
+  {
+    id: 'SEN-AGENT-002',
+    name: 'model-controlled-file-read',
+    severity: 'high',
+    category: 'agent',
+    message: '模型可控输入进入文件读取(execute(args) → readFile)',
+    description: '模型可控参数进入文件读取调用,若无 workspace containment 则模型可读任意文件。',
+    recommendation: '文件读取必须做 workspace containment(先 resolve 再校验在根目录内)。',
+  },
+  {
+    id: 'SEN-AGENT-003',
+    name: 'model-controlled-file-write',
+    severity: 'high',
+    category: 'agent',
+    message: '模型可控输入进入文件写入(execute(args) → writeFile)',
+    description: '模型可控参数进入文件写入调用,可写 HOME / 系统目录 / DSH profile / 其他插件目录。',
+    recommendation: '文件写入必须做 workspace containment,并拒绝写入 HOME / 系统目录 / DSH profile。',
+  },
+  {
+    id: 'SEN-AGENT-004',
+    name: 'model-controlled-network-target',
+    severity: 'high',
+    category: 'agent',
+    message: '模型可控输入进入网络请求目标(execute(args) → fetch/axios)',
+    description: '模型可控参数成为网络请求 URL,即 SSRF / 任意出网能力面。',
+    recommendation: '限制协议(http/https)与目标(禁 localhost / 内网 / 云元数据 169.254.169.254)。',
   },
 ])
 

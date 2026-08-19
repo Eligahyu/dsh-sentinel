@@ -27,7 +27,9 @@ test('rule catalog is well-formed', () => {
     assert.ok(CATEGORIES.includes(rule.category), `${rule.id} bad category`)
     assert.ok(typeof rule.message === 'string' && rule.message.length > 0, `${rule.id} missing message`)
     assert.ok(
-      rule.linePatterns?.length > 0 || rule.contentPatterns?.length > 0 || rule.category === 'manifest' || rule.category === 'hygiene',
+      rule.linePatterns?.length > 0 || rule.contentPatterns?.length > 0
+        || rule.category === 'manifest' || rule.category === 'hygiene'
+        || rule.category === 'agent' || rule.category === 'taint',
       `${rule.id} has no detection patterns`,
     )
     assert.ok(SEVERITY_WEIGHT[rule.severity] >= 0, `${rule.id} weight`)
