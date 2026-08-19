@@ -232,6 +232,26 @@ test('same-rule spam on one file is capped at 10 findings', async () => {
   }
 })
 
+test('bare spawn/exec only flags when child_process is imported', async () => {
+  const tmp = mkdtempSync(join(process.env.TEMP ?? '/tmp', 'sentinel-spawnctx-'))
+  try {
+    // Game/UI code with its own spawn() function — no child_process anywhere.
+    writeFileSync(join(tmp, 'game.js'),
+      "function spawn(state) { return state }\nspawn(state)\nspawn(state, 2)\n")
+    const safe = await scan(join(tmp, 'game.js'))
+    assert.equal(safe.findings.some((f) => f.id === 'SEN-EXEC-002'), false, 'no import → no shell-exec finding')
+
+    // Same calls with child_process imported → flagged.
+    writeFileSync(join(tmp, 'proc.js'),
+      "import cp from 'node:child_process'\nspawn('ls')\nexecSync('pwd')\n")
+    const flagged = await scan(join(tmp, 'proc.js'))
+    const execs = flagged.findings.filter((f) => f.id === 'SEN-EXEC-002')
+    assert.ok(execs.length >= 2, 'with import → bare spawn/exec flag')
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
 test('same-origin relative fetches (plugin API calls) are not outbound network', async () => {
   const tmp = mkdtempSync(join(process.env.TEMP ?? '/tmp', 'sentinel-sameorigin-'))
   try {

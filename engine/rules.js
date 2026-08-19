@@ -89,7 +89,9 @@ export const RULES = Object.freeze([
     ignoreComments: true,
     linePatterns: [
       { re: /(?:child_process|cp)\s*\.\s*(?:exec|execSync|execFile|spawn|spawnSync|fork)\s*\(/ },
-      { re: /(?<![.\w$])(?:exec|execSync|spawn|spawnSync)\s*\(/ },
+      // 裸 spawn(/exec( 只在文件确实引入 child_process 时才告警——否则可能是
+      // 业务函数名(如游戏插件的 spawn(state)),见 needsImport 处理。
+      { re: /(?<![.\w$])(?:exec|execSync|spawn|spawnSync)\s*\(/, needsImport: 'child_process' },
       { re: /\b(?:system|popen|shell_exec|os\.system|subprocess\.(?:run|Popen|call))\s*\(/ },
     ],
   },

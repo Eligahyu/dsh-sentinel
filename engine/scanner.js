@@ -145,6 +145,13 @@ export function applyRule(rule, relPath, content) {
   }
 
   for (const p of rule.linePatterns ?? []) {
+    // 裸调用模式可按需要求文件确实 import 了对应模块(如 child_process),
+    // 避免业务函数同名(游戏插件的 spawn(state))被误报为 shell 执行。
+    if (p.needsImport) {
+      // 匹配 import ... from 'node:child_process' / require('child_process') 等形态。
+      const impRe = new RegExp(`(?:require|import)[^;\\n]{0,80}['"][^'"]{0,40}${p.needsImport}['"]`)
+      if (!impRe.test(content)) continue
+    }
     const re = new RegExp(p.re.source, p.re.flags.includes('g') ? p.re.flags : p.re.flags + 'g')
     let m
     let guard = 0

@@ -18,27 +18,30 @@
 | dsh-market(插件市场) | 👀 review | 44/100 | 4(src 4) | bundle |
 | DSH-better-sidebar(侧边栏) | 👀 review | 44/100 | 4(src 4) | bundle |
 | dsh-interconnect(跨实例转发) | 👀 review | 40/100 | 2(src 2) | bundle |
-| lhh010__dsh-minigames | 👀 review | 40/100 | 5(src 5) | bundle |
 | dsh-qqbot(腾讯官方 QQ Bot) | 👀 review | 40/100 | 2(src 2) | bundle |
 | whale-girl(桌宠) | 👀 review | 40/100 | 5(src 5) | bundle |
 | deepseek-harness-studio(零代码桌面端) | 👀 review | 31/100 | 3(src 3) | 非 bundle |
 | dsh-custom-tool(自定义工具) | 👀 review | 28/100 | 2(src 2) | bundle |
 | dsh-lark(飞书通道) | 👀 review | 28/100 | 2(src 2) | bundle |
+| hellodigua__dsh-share | 👀 review | 24/100 | 3(src 3) | bundle |
 | deepseek-harness-desktop(Tauri 桌面端) | 👀 review | 23/100 | 2(src 2) | 非 bundle |
 | working-activity(活动行) | 👀 review | 20/100 | 1(src 1) | 非 bundle |
 | dsh-kun-like-pet(坤坤桌宠) | 👀 review | 20/100 | 1(src 1) | 非 bundle |
 | DSH-Transparent-UI(玻璃质感皮肤) | 👀 review | 20/100 | 1(src 1) | 非 bundle |
 | dsh-web-ui(UI 合集) | 👀 review | 20/100 | 1(src 1) | 非 bundle |
 | dsh-memory-evolve(记忆) | ✅ safe | 16/100 | 2(src 2) | bundle |
-| dsh-remote(SSH 反向隧道) | ✅ safe | 16/100 | 2(src 2) | bundle |
 | modlens(视觉) | ✅ safe | 16/100 | 2(src 2) | bundle |
 | dsh-vision-toolkit(视觉) | ✅ safe | 8/100 | 1(src 1) | bundle |
 | dsh-harness-mcp-server(MCP 服务) | ✅ safe | 8/100 | 1(src 1) | 非 bundle |
+| dsh-remote(SSH 反向隧道) | ✅ safe | 8/100 | 1(src 1) | bundle |
+| Han-1413141__dsh-cost-meter | ✅ safe | 8/100 | 1(src 1) | 非 bundle |
 | deepseek-harness-skin(换肤系统) | ✅ safe | 8/100 | 1(src 1) | 非 bundle |
 | hellodigua__dsh-emoji | ✅ safe | 8/100 | 1(src 1) | bundle |
+| lhh010__dsh-minigames | ✅ safe | 8/100 | 1(src 1) | bundle |
 | distill(对话蒸馏) | ✅ safe | 8/100 | 1(src 1) | bundle |
 | dsh-ads(整活) | ✅ safe | 8/100 | 1(src 1) | bundle |
 | dsh-agent-teams(Agent 团队) | ✅ safe | 8/100 | 1(src 1) | bundle |
+| Nwflower__dsh-chat-import | ✅ safe | 8/100 | 1(src 1) | bundle |
 | oil-oil/dsh-vision(视觉) | ✅ safe | 8/100 | 1(src 1) | bundle |
 | dsh-at-file(@ 文件引用) | ✅ safe | 8/100 | 1(src 1) | bundle |
 | dsh-mnemon(Mnemon 记忆) | ✅ safe | 8/100 | 1(src 1) | bundle |
@@ -47,6 +50,7 @@
 | dsh-notifier(8 渠道通知网关) | ✅ safe | 8/100 | 1(src 1) | bundle |
 | dsh-automation(定时任务) | ✅ safe | 8/100 | 1(src 1) | bundle |
 | dshcode(Electron 桌面端) | ✅ safe | 8/100 | 1(src 1) | 非 bundle |
+| Ychris12138__dsh-usage-stats | ✅ safe | 8/100 | 1(src 1) | bundle |
 | dsh-noema(长期记忆) | ✅ safe | 8/100 | 1(src 1) | bundle |
 | dsh-toolkit(确定性工具集) | ✅ safe | 0/100 | 0(src 0) | bundle |
 | dsh-im(8 渠道 IM 桥) | ✅ safe | 0/100 | 0(src 0) | bundle |
@@ -110,8 +114,8 @@
 
 ### dsh-remote(SSH 反向隧道)
 
-- 裁决:✅ safe · 16/100
-- 命中 2 条(source 2)
+- 裁决:✅ safe · 8/100
+- 命中 1 条(source 1)
 - 无 critical/high 级 source 命中
 
 ### deepseek-harness-studio(零代码桌面端)
@@ -128,6 +132,12 @@
 - critical/high 命中:
   - `SEN-MAN-002` package.json:1 — 不是 DSH bundle(缺少 dsh.bundle 声明)
 
+### Han-1413141__dsh-cost-meter
+
+- 裁决:✅ safe · 8/100
+- 命中 1 条(source 1)
+- 无 critical/high 级 source 命中
+
 ### deepseek-harness-skin(换肤系统)
 
 - 裁决:✅ safe · 8/100
@@ -140,10 +150,16 @@
 - 命中 1 条(source 1)
 - 无 critical/high 级 source 命中
 
+### hellodigua__dsh-share
+
+- 裁决:👀 review · 24/100
+- 命中 3 条(source 3)
+- 无 critical/high 级 source 命中
+
 ### lhh010__dsh-minigames
 
-- 裁决:👀 review · 40/100
-- 命中 5 条(source 5)
+- 裁决:✅ safe · 8/100
+- 命中 1 条(source 1)
 - 无 critical/high 级 source 命中
 
 ### modlens(视觉)
@@ -172,6 +188,12 @@
 - 无 critical/high 级 source 命中
 
 ### dsh-agent-teams(Agent 团队)
+
+- 裁决:✅ safe · 8/100
+- 命中 1 条(source 1)
+- 无 critical/high 级 source 命中
+
+### Nwflower__dsh-chat-import
 
 - 裁决:✅ safe · 8/100
 - 命中 1 条(source 1)
@@ -277,6 +299,12 @@
 
 - 裁决:✅ safe · 0/100
 - 命中 0 条(source 0)
+- 无 critical/high 级 source 命中
+
+### Ychris12138__dsh-usage-stats
+
+- 裁决:✅ safe · 8/100
+- 命中 1 条(source 1)
 - 无 critical/high 级 source 命中
 
 ### dsh-vision-router(视觉路由)
