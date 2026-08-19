@@ -7,25 +7,42 @@
  *
  * Completeness contract (安全工具的红线):
  *   - findings 上限只限制"报告保存条数"(findingsReturned),绝不提前停止分析
- *   - 每个文件的每条规则命中都会被计数(findingsTotal)
+ *   - 每个文件的每条规则命中都会被计数(findingsTotal)并进入 allStats(评分依据)
  *   - 大文件不跳过:走 large-file-lite 分析并标记 analysisMode
- *   - 任何截断/跳过都会在报告中显式体现(scanComplete / filesSkipped / scanCoverage)
+ *   - 超过 hardMaxBytesPerFile 的文件绝不 silent skip:记录 metadata
+ *     (path/size/sha256/extension/分类/采样信号)并强制 scanComplete=false
+ *   - 可执行二进制(.wasm/.exe/.dll/.so/.node…)做 metadata-level audit
+ *   - 任何截断/跳过都会在报告中显式体现(scanComplete / filesSkipped /
+ *     scanCoverage / ignored / hardSkipped)
+ *
+ * Scoring contract:
+ *   - allStats 基于全部有效命中(与 findingsTotal 一致),与报告展示解耦
+ *   - 报告保存采用"优先级有界缓冲"(critical > high > medium > low > info),
+ *     critical/high 即使出现在后面也不会因为 cap 丢失
+ *   - 同源重叠抑制只影响评分(证据保留)
  */
 
-import { readdirSync, readFileSync, lstatSync, statSync } from 'node:fs'
+import { readdirSync, readFileSync, lstatSync, statSync, openSync, readSync, closeSync, createReadStream } from 'node:fs'
 import { join, relative, sep, dirname } from 'node:path'
 import { createHash } from 'node:crypto'
-import { RULES, CODE_EXT } from './rules.js'
-import { isInsideRoot, PathEscapeError } from './path-safety.js'
+import { RULES, CODE_EXT, SEVERITY_ORDER, CATEGORIES, severityWeight } from './rules.js'
+import { resolveInside, PathEscapeError } from './path-safety.js'
+import { isTestPath, TEST_SEVERITY_DOWNGRADE, OVERLAP_SUPPRESSION } from './report.js'
 import { semanticScan } from './semantic/index.js'
+import { auditBinarySample } from './binary/inspect.js'
 
 export const BINARY_EXTENSIONS = new Set([
   '.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico', '.bmp', '.avif', '.tiff',
   '.woff', '.woff2', '.ttf', '.otf', '.eot',
   '.pdf', '.zip', '.gz', '.tgz', '.tar', '.7z', '.rar',
   '.mp3', '.mp4', '.mov', '.avi', '.mkv', '.webm', '.wav', '.flac',
-  '.wasm', '.exe', '.dll', '.so', '.dylib', '.class', '.pyc', '.o', '.a',
-  '.db', '.sqlite', '.sqlite3', '.lockb', '.node',
+  '.db', '.sqlite', '.sqlite3', '.lockb',
+])
+
+/** 可执行/原生二进制:不做整体跳过,走 metadata-level audit(SEN-BIN-*)。 */
+export const EXEC_BINARY_EXTENSIONS = new Set([
+  '.wasm', '.exe', '.dll', '.so', '.dylib', '.node', '.o', '.a', '.obj',
+  '.class', '.pyc', '.pyd', '.jar', '.bin', '.msi', '.dmg', '.apk', '.deb', '.rpm', '.ko',
 ])
 
 /** source mode 跳过的目录(GitHub 源码仓库视角)。 */
@@ -44,8 +61,9 @@ export const SKIP_PACKAGE_DIRECTORIES = new Set([
 export const DEFAULT_LIMITS = Object.freeze({
   maxFiles: 3000,
   maxBytesPerFile: 512 * 1024,
-  hardMaxBytesPerFile: 20 * 1024 * 1024, // 超过此值连 lite 都不做,只记录 hash
+  hardMaxBytesPerFile: 20 * 1024 * 1024, // 超过此值连 lite 都不做:记录 metadata 并强制 incomplete
   maxFindings: 300,
+  binaryMaxFiles: 500, // 可执行二进制审计数量上限,超出 → incomplete
 })
 
 /** 目录路径是否属于构建产物(dist/build/out/bundle)。 */
@@ -55,8 +73,8 @@ export function isBuildPath(relPath) {
 
 /**
  * 压缩/打包产物启发式:存在超长单行(>3000 字符)。
- * 压缩代码是"高信号、低精度"区域(eval/Function 可能是转译器产物),
- * 命中照常列出,但计分降一级(与 test 文件同理)。
+ * bundleFile/minified 只作为 evidence/context 标记,绝不自动改变 severity
+ * (见 engine/report.js 的 confidence 模型)。
  */
 export function isMinifiedContent(content) {
   let start = 0
@@ -70,10 +88,16 @@ export function isMinifiedContent(content) {
   return content.length - start > 3000
 }
 
-/** Does this relative path look like a binary we should skip? */
+/** Does this relative path look like a (non-executable) binary we should skip? */
 export function isBinaryPath(relPath) {
   const lower = relPath.toLowerCase()
   return BINARY_EXTENSIONS.has(extOf(lower))
+}
+
+/** Does this relative path look like an executable/native binary to audit? */
+export function isExecBinaryPath(relPath) {
+  const lower = relPath.toLowerCase()
+  return EXEC_BINARY_EXTENSIONS.has(extOf(lower))
 }
 
 function extOf(name) {
@@ -97,22 +121,76 @@ function makeSnippet(lineText, max = 240) {
   return t.slice(0, max - 1) + '…'
 }
 
+/** 简单 glob → RegExp(双星任意深度、单星单段、问号单字符)。 */
+export function globToRegExp(pattern) {
+  const normalized = String(pattern).replace(/\\/g, '/')
+  let out = ''
+  let i = 0
+  while (i < normalized.length) {
+    const ch = normalized[i]
+    if (ch === '*') {
+      if (normalized[i + 1] === '*') {
+        out += '.*'
+        i += 2
+        if (normalized[i] === '/') {
+          out += '/?'
+          i += 1
+        }
+        continue
+      }
+      out += '[^/]*'
+      i += 1
+      continue
+    }
+    if (ch === '?') {
+      out += '[^/]'
+      i += 1
+      continue
+    }
+    out += ch.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    i += 1
+  }
+  return new RegExp(`^${out}$`)
+}
+
 /**
- * Recursively collect text files under root, applying mode-dependent skip rules.
- * 大文件(> maxBytesPerFile,<= hardMaxBytesPerFile)单独收集,后续走 lite 分析。
- * @returns {{ files: Array, largeFiles: Array, skipped: {binary: number, big: number, dirs: number}, truncated: boolean }}
+ * Recursively collect files under root, applying mode-dependent skip rules.
+ * 大文件(> maxBytesPerFile,<= hardMaxBytesPerFile)单独收集,后续走 lite 分析;
+ * 超过 hardMaxBytesPerFile 的文件收集进 hardSkipped(绝不 silent skip);
+ * 可执行二进制收集进 binaries(metadata audit)。
+ * @returns {{ files: Array, largeFiles: Array, binaries: Array, hardSkipped: Array,
+ *             skipped: {binary, big, dirs, ignored}, ignored: Array, truncated: boolean }}
  */
 export function collectFiles(root, {
   maxFiles = DEFAULT_LIMITS.maxFiles,
   maxBytesPerFile = DEFAULT_LIMITS.maxBytesPerFile,
   hardMaxBytesPerFile = DEFAULT_LIMITS.hardMaxBytesPerFile,
   mode = 'source',
+  includeBuildArtifacts = false,
+  ignore = [],
 } = {}) {
-  const skipDirs = mode === 'source' ? SKIP_DIRECTORIES : SKIP_PACKAGE_DIRECTORIES
+  let skipDirs = mode === 'source' ? SKIP_DIRECTORIES : SKIP_PACKAGE_DIRECTORIES
+  if (mode === 'source' && includeBuildArtifacts) skipDirs = SKIP_PACKAGE_DIRECTORIES
+  const ignoreRules = (ignore ?? []).map((pattern) => ({ pattern: String(pattern), re: globToRegExp(String(pattern)) }))
+  const ignoredCounts = new Map() // pattern → 被忽略的文件数
   const entries = []
-  const skipped = { binary: 0, big: 0, dirs: 0 }
+  const binaries = []
+  const hardSkipped = []
+  const skipped = { binary: 0, big: 0, dirs: 0, ignored: 0 }
   let truncated = false
-  const walk = (dir) => {
+
+  const isIgnored = (relPath, counts) => {
+    const norm = relPath.replace(/\\/g, '/')
+    for (const rule of ignoreRules) {
+      if (rule.re.test(norm)) {
+        ignoredCounts.set(rule.pattern, (ignoredCounts.get(rule.pattern) ?? 0) + counts)
+        return true
+      }
+    }
+    return false
+  }
+
+  const walk = (dir, relPrefix = '') => {
     if (entries.length >= maxFiles) {
       truncated = true
       return
@@ -129,6 +207,7 @@ export function collectFiles(root, {
         return
       }
       const abs = join(dir, entry.name)
+      const rel = relPrefix ? `${relPrefix}/${entry.name}` : entry.name
       let stat
       try {
         stat = lstatSync(abs)
@@ -141,17 +220,30 @@ export function collectFiles(root, {
           skipped.dirs += 1
           continue
         }
-        walk(abs)
+        if (ignoreRules.length > 0 && isIgnored(rel + '/', 1)) {
+          skipped.ignored += 1
+          continue
+        }
+        walk(abs, rel)
         continue
       }
       if (!stat.isFile()) continue
-      const rel = relative(root, abs)
+      if (ignoreRules.length > 0 && isIgnored(rel, 1)) {
+        skipped.ignored += 1
+        continue
+      }
+      // 可执行/原生二进制:收集进审计列表(metadata-level audit),绝不整体跳过
+      if (isExecBinaryPath(rel)) {
+        binaries.push({ abs, rel, size: stat.size })
+        continue
+      }
       if (isBinaryPath(rel)) {
         skipped.binary += 1
         continue
       }
       if (stat.size > hardMaxBytesPerFile) {
         skipped.big += 1
+        hardSkipped.push({ abs, rel, size: stat.size })
         continue
       }
       entries.push({ abs, rel, size: stat.size })
@@ -164,13 +256,15 @@ export function collectFiles(root, {
     if (e.size > maxBytesPerFile) largeFiles.push(e)
     else files.push(e)
   }
-  return { files, largeFiles, skipped, truncated }
+  const ignored = [...ignoredCounts].map(([pattern, count]) => ({ pattern, count }))
+  return { files, largeFiles, binaries, hardSkipped, skipped, ignored, truncated }
 }
 
 /**
  * Apply one rule to one file.
- * 完整度契约:total 计所有独立命中(按行去重),findings 只存前 10 条(防刷屏),
- * 绝不因单规则命中多而丢失全量计数。
+ * 完整度契约:total 计所有独立命中(按行去重,exclude/comment 不计入),
+ * findings 只存前 10 条(防刷屏),绝不因单规则命中多而丢失全量计数。
+ * 正确顺序:seenLines 去重 → excludes → ignoreComments → total+1 → 保存。
  * @returns {{ findings: Array, total: number }}
  */
 export function applyRule(rule, relPath, content) {
@@ -179,17 +273,17 @@ export function applyRule(rule, relPath, content) {
   const findings = []
   const seenLines = new Set()
   let total = 0
+  const lines = content.split('\n') // 每文件预计算一次,避免每条命中重复 split(性能)
   const isCommentLine = (lineText) => /^\s*(\/\/|\*|\/\*)/.test(lineText)
   const push = (line, note) => {
     if (seenLines.has(line)) return
-    seenLines.add(line)
-    total += 1
-    const lines = content.split('\n')
     const lineText = lines[line - 1] ?? ''
     // Rule-level exclusions: known-safe idioms on the same line.
     if (rule.excludes?.some((re) => re.test(lineText))) return
     // Comment lines carry prose/JSDoc, not executable code.
     if (rule.ignoreComments && isCommentLine(lineText)) return
+    seenLines.add(line)
+    total += 1
     if (findings.length >= 10) return // 存储上限,计数已保留
     findings.push({
       ruleId: rule.id,
@@ -219,6 +313,7 @@ export function applyRule(rule, relPath, content) {
   }
 
   for (const p of rule.contentPatterns ?? []) {
+    p.re.lastIndex = 0 // 防跨文件 lastIndex 状态污染(RegExp state bug)
     const m = p.re.exec(content)
     if (m !== null) push(lineOf(content, m.index), p.note)
   }
@@ -231,9 +326,11 @@ const LITE_RULE_IDS = new Set(['SEN-OBF-002', 'SEN-EXEC-003', 'SEN-EXEC-002', 'S
 
 /**
  * 大文件(512KB–20MB)lite 分析:复用规则子集 + 文件 hash,标记 analysisMode。
+ * @returns {{ findings: Array, total: number, hits: Array<{rule, total, findings}> }}
  */
 export function analyzeLargeFileLite(content, relPath, { hash, bytes }) {
   const findings = []
+  const hits = []
   let total = 0
   for (const rule of RULES) {
     if (!LITE_RULE_IDS.has(rule.id)) continue
@@ -245,30 +342,297 @@ export function analyzeLargeFileLite(content, relPath, { hash, bytes }) {
       f.fileBytes = bytes
       findings.push(f)
     }
+    if (r.total > 0) hits.push({ rule, total: r.total, findings: r.findings })
   }
-  return { findings, total }
+  return { findings, total, hits }
+}
+
+// ─────────────────────────── 评分统计(P0-1 核心) ───────────────────────────
+
+/**
+ * 优先级有界缓冲:始终保留风险最高的 max 条(critical > high > medium > low > info),
+ * 而不是最先出现的 max 条。critical/high 即使出现在后面也不会因为 cap 丢失。
+ */
+export class FindingBuffer {
+  constructor(max) {
+    this.max = Math.max(1, Number(max) || 300)
+    this.buckets = { critical: [], high: [], medium: [], low: [], info: [] }
+    this.count = 0
+  }
+
+  add(f) {
+    const bucket = this.buckets[f.severity] ?? this.buckets.info
+    if (this.count < this.max) {
+      bucket.push(f)
+      this.count += 1
+      return
+    }
+    // 满:从最低优先级非空桶的队头(最早到达)淘汰,新条目入队尾。
+    for (const sev of ['info', 'low', 'medium', 'high', 'critical']) {
+      if (this.buckets[sev].length > 0) {
+        this.buckets[sev].shift()
+        bucket.push(f)
+        return
+      }
+    }
+  }
+
+  /** 按优先级从高到低输出(报告展示前会再次排序)。 */
+  drain() {
+    const out = []
+    for (const sev of ['critical', 'high', 'medium', 'low', 'info']) {
+      out.push(...this.buckets[sev])
+    }
+    return out
+  }
+}
+
+/** 空的全量统计(评分依据,与报告展示解耦)。 */
+export function emptyAllStats() {
+  return {
+    bySeverity: Object.fromEntries(SEVERITY_ORDER.map((s) => [s, 0])),
+    byCategory: Object.fromEntries(CATEGORIES.map((c) => [c, 0])),
+    byContext: { source: 0, test: 0 },
+    findingCount: 0,
+    rawScore: 0,
+  }
+}
+
+/** 同文件同行的 specific 命中 → 标记 generic 命中 suppressedForScore(评分剔除,证据保留)。 */
+export function markSuppressed(findings) {
+  const specific = new Set()
+  for (const f of findings) {
+    if (OVERLAP_SUPPRESSION.some((p) => p.specific === f.ruleId)) {
+      specific.add(`${f.ruleId}|${f.file}|${f.line ?? 1}|${f.package ?? ''}`)
+    }
+  }
+  if (specific.size === 0) return
+  for (const f of findings) {
+    if (OVERLAP_SUPPRESSION.some((p) =>
+      p.generic === f.ruleId && specific.has(`${p.specific}|${f.file}|${f.line ?? 1}|${f.package ?? ''}`))) {
+      f.suppressedForScore = true
+    }
+  }
 }
 
 /**
- * Scan a directory tree: regex fast pass + semantic deep pass.
+ * 收集器:全量统计(allStats,评分依据)+ 优先级有界缓冲(展示)。
+ * 用法:addRuleHits/addSemantic 累积 → 每文件处理完调用 finalizeFile。
+ */
+export class FindingCollector {
+  constructor({ maxFindings = 300, testReachableFiles = new Set() } = {}) {
+    this.buffer = new FindingBuffer(maxFindings)
+    this.allStats = emptyAllStats()
+    this.testReachableFiles = testReachableFiles instanceof Set ? testReachableFiles : new Set()
+    this.staged = []
+  }
+
+  /** test 文件降权判断:test 路径且未被 runtime entry(main/exports/bin/patch)reachable。 */
+  isTest(relPath) {
+    return isTestPath(relPath) && !this.testReachableFiles.has(relPath)
+  }
+
+  /** 正则规则批量命中:所有命中同 severity/category,total 可能大于保存条数。 */
+  addRuleHits(rule, total, saved, relPath) {
+    if (total <= 0) return
+    this.allStats.bySeverity[rule.severity] += total
+    this.allStats.byCategory[rule.category] += total
+    const inTest = this.isTest(relPath)
+    this.allStats.byContext[inTest ? 'test' : 'source'] += total
+    this.allStats.findingCount += total
+    const excess = total - saved.length
+    if (excess > 0) {
+      const w = inTest ? (TEST_SEVERITY_DOWNGRADE[rule.severity] ?? rule.severity) : rule.severity
+      this.allStats.rawScore += severityWeight(w) * excess
+    }
+    this.staged.push(...saved)
+  }
+
+  /** 语义/二进制/manifest finding:逐条统计。 */
+  addSemantic(findings, relPath) {
+    if (!findings || findings.length === 0) return
+    const inTest = this.isTest(relPath)
+    for (const f of findings) {
+      this.allStats.bySeverity[f.severity] = (this.allStats.bySeverity[f.severity] ?? 0) + 1
+      this.allStats.byCategory[f.category] = (this.allStats.byCategory[f.category] ?? 0) + 1
+      this.allStats.byContext[inTest ? 'test' : 'source'] += 1
+      this.allStats.findingCount += 1
+    }
+    this.staged.push(...findings)
+  }
+
+  /** 文件处理完毕:重叠抑制标记 + 精确 rawScore + 入缓冲。 */
+  finalizeFile(relPath) {
+    markSuppressed(this.staged)
+    const inTest = this.isTest(relPath)
+    for (const f of this.staged) {
+      if (!f.suppressedForScore) {
+        const w = inTest ? (TEST_SEVERITY_DOWNGRADE[f.severity] ?? f.severity) : f.severity
+        this.allStats.rawScore += severityWeight(w)
+      }
+      this.buffer.add(f)
+    }
+    this.staged = []
+  }
+
+  findings() {
+    return this.buffer.drain()
+  }
+
+  stats() {
+    return this.allStats
+  }
+}
+
+/** 合并两份 allStats(scanTree 结果 + manifest/其他 collector)。 */
+export function mergeStats(a, b) {
+  const bySeverity = { ...a.bySeverity }
+  const byCategory = { ...a.byCategory }
+  const byContext = { ...a.byContext }
+  for (const [k, v] of Object.entries(b?.bySeverity ?? {})) bySeverity[k] = (bySeverity[k] ?? 0) + v
+  for (const [k, v] of Object.entries(b?.byCategory ?? {})) byCategory[k] = (byCategory[k] ?? 0) + v
+  for (const [k, v] of Object.entries(b?.byContext ?? {})) byContext[k] = (byContext[k] ?? 0) + v
+  return {
+    bySeverity,
+    byCategory,
+    byContext,
+    findingCount: a.findingCount + (b?.findingCount ?? 0),
+    rawScore: a.rawScore + (b?.rawScore ?? 0),
+  }
+}
+
+// ─────────────────────────── hard-skip / binary metadata ───────────────────────────
+
+/** 流式 sha256(大文件不整读入内存)。 */
+export function hashFileStream(abs) {
+  return new Promise((resolve, reject) => {
+    const hash = createHash('sha256')
+    const stream = createReadStream(abs)
+    stream.on('data', (chunk) => hash.update(chunk))
+    stream.on('end', () => resolve(hash.digest('hex')))
+    stream.on('error', reject)
+  })
+}
+
+/** 读取文件头尾采样(各 ≤ 64KB)。 */
+export function sampleHeadTail(abs, size) {
+  const fd = openSync(abs, 'r')
+  try {
+    const headLen = Math.min(size, 65536)
+    const head = Buffer.alloc(headLen)
+    readSync(fd, head, 0, headLen, 0)
+    let tail = null
+    if (size > headLen) {
+      const tailLen = Math.min(size - headLen, 65536)
+      tail = Buffer.alloc(tailLen)
+      readSync(fd, tail, 0, tailLen, size - tailLen)
+    }
+    return { head, tail }
+  } finally {
+    closeSync(fd)
+  }
+}
+
+/** 超过 hardMax 的文件:metadata 级记录(绝不 silent skip)。 */
+export async function hardSkippedMetadata(abs, size) {
+  const { head, tail } = sampleHeadTail(abs, size)
+  let classification = 'binary'
+  for (let i = 0; i < Math.min(head.length, 4096); i += 1) {
+    if (head[i] === 0) {
+      classification = 'binary'
+      break
+    }
+    if (i === Math.min(head.length, 4096) - 1) classification = 'text'
+  }
+  const headText = head.toString('utf8')
+  const tailText = tail ? tail.toString('utf8') : ''
+  const hints = {
+    urls: (headText.match(/https?:\/\/[^\s"'<>]{4,120}/g) ?? []).slice(0, 5),
+    execKeywords: /(?:exec|eval|child_process|spawn|curl|wget)/i.test(headText + tailText),
+    base64Blob: /[A-Za-z0-9+/]{200,}={0,2}/.test(headText),
+    highEntropyEstimate: /[A-Za-z0-9+/]{80,}/.test(headText.slice(0, 4096)),
+  }
+  const sha256 = await hashFileStream(abs)
+  return {
+    path: '', // 由调用方填入相对路径
+    size,
+    sha256,
+    extension: extOf(abs) || '',
+    classification,
+    hints,
+  }
+}
+
+/** 可执行二进制 audit finding 生成(SEN-BIN-001/002/003、SEN-WASM-001)。 */
+export function binaryFindingsFor(meta) {
+  const findings = []
+  const base = {
+    file: meta.rel,
+    line: 1,
+    snippet: `binary ${meta.rel}(${meta.size} bytes, kind=${meta.kind}, magic=${meta.magic}, entropy=${meta.entropy})`,
+    recommendation: '核对二进制来源与构建产物;与源码仓库对比验证,无文档说明的原生代码需人工复核。',
+  }
+  if (meta.kind === 'wasm') {
+    findings.push({
+      ruleId: 'SEN-WASM-001', severity: 'info', category: 'binary',
+      message: '包含 WebAssembly 模块(wasm module present)',
+      ...base,
+    })
+  } else {
+    findings.push({
+      ruleId: 'SEN-BIN-001', severity: 'info', category: 'binary',
+      message: '携带原生二进制(native binary present)',
+      ...base,
+    })
+  }
+  if (meta.entropy > 7.2) {
+    findings.push({
+      ruleId: 'SEN-BIN-003', severity: 'medium', category: 'binary',
+      message: '高熵二进制(疑似压缩/加密/加壳)',
+      file: meta.rel, line: 1,
+      snippet: `entropy=${meta.entropy}(head sample)`,
+      recommendation: '高熵不代表恶意,但加壳二进制难以静态核验,建议与构建产物对比。',
+    })
+  }
+  if (meta.highSignals.length > 0) {
+    findings.push({
+      ruleId: 'SEN-BIN-002', severity: 'high', category: 'binary',
+      message: `二进制内发现可疑字符串(${meta.highSignals.join(', ')})`,
+      file: meta.rel, line: 1,
+      snippet: `strings: ${meta.highSignals.join(', ')}`,
+      recommendation: '原生代码中出现外传端点/凭据标记,需人工确认;无正当理由视为高度可疑。',
+    })
+  } else if (meta.mediumSignals.length > 0) {
+    findings.push({
+      ruleId: 'SEN-BIN-002', severity: 'medium', category: 'binary',
+      message: `二进制内发现可疑字符串(${meta.mediumSignals.join(', ')})`,
+      file: meta.rel, line: 1,
+      snippet: `strings: ${meta.mediumSignals.join(', ')}`,
+      recommendation: '原生代码引用 shell 工具/凭据路径,需人工确认用途。',
+    })
+  }
+  return findings
+}
+
+/**
+ * Scan a directory tree: regex fast pass + semantic deep pass + binary audit.
  * @returns {Promise<object>} 完整度字段见返回对象。
  */
 export async function scanTree(root, opts = {}) {
   const limits = { ...DEFAULT_LIMITS, ...opts }
-  const { files, largeFiles, skipped, truncated } = collectFiles(root, limits)
+  const {
+    files, largeFiles, binaries, hardSkipped, skipped, ignored, truncated,
+  } = collectFiles(root, limits)
 
-  const findings = []
+  const collector = new FindingCollector({
+    maxFindings: limits.maxFindings,
+    testReachableFiles: limits.testReachableFiles,
+  })
   let findingsTotal = 0
   const languages = {}
   const largest = []
   let sourceFiles = 0
   let buildFiles = 0
-
-  const store = (list) => {
-    for (const f of list) {
-      if (findings.length < limits.maxFindings) findings.push(f)
-    }
-  }
 
   for (const file of files) {
     let content
@@ -296,15 +660,16 @@ export async function scanTree(root, opts = {}) {
       const r = applyRule(rule, file.rel, content)
       findingsTotal += r.total
       if (minified) tagMinified(r.findings)
-      store(r.findings)
+      collector.addRuleHits(rule, r.total, r.findings, file.rel)
     }
     // semantic deep pass(JS/TS 工具类)
     if (CODE_EXT.test(file.rel)) {
       const sem = semanticScan(content, file.rel)
       findingsTotal += sem.length
       if (minified) tagMinified(sem)
-      store(sem)
+      collector.addSemantic(sem, file.rel)
     }
+    collector.finalizeFile(file.rel)
   }
 
   for (const lf of largeFiles) {
@@ -328,19 +693,62 @@ export async function scanTree(root, opts = {}) {
         f.analysisMode = 'minified'
       }
     }
-    store(lite.findings)
+    for (const h of lite.hits) collector.addRuleHits(h.rule, h.total, h.findings, lf.rel)
+    collector.finalizeFile(lf.rel)
+  }
+
+  // 可执行二进制 metadata audit(SEN-BIN-*/SEN-WASM-*)
+  let binarySkippedCount = 0
+  const binaryLimit = limits.binaryMaxFiles ?? DEFAULT_LIMITS.binaryMaxFiles
+  for (const bin of binaries.slice(0, binaryLimit)) {
+    let hash
+    try {
+      hash = await hashFileStream(bin.abs)
+    } catch {
+      continue
+    }
+    const { head } = sampleHeadTail(bin.abs, bin.size)
+    const audit = auditBinarySample(head, bin.rel)
+    const meta = { ...bin, hash, ...audit }
+    const fs = binaryFindingsFor(meta)
+    findingsTotal += fs.length
+    collector.addSemantic(fs, bin.rel)
+    collector.finalizeFile(bin.rel)
+  }
+  if (binaries.length > binaryLimit) binarySkippedCount = binaries.length - binaryLimit
+
+  // 超过 hardMax 的文件:metadata 记录(scanComplete 由调用方置 false)
+  const hardSkippedMeta = []
+  for (const h of hardSkipped) {
+    try {
+      const meta = await hardSkippedMetadata(h.abs, h.size)
+      hardSkippedMeta.push({ ...meta, path: h.rel })
+    } catch {
+      hardSkippedMeta.push({ path: h.rel, size: h.size, sha256: '', extension: extOf(h.rel), classification: 'unknown', hints: {} })
+    }
   }
 
   largest.sort((a, b) => b.bytes - a.bytes)
-  const filesAnalyzed = files.length + largeFiles.length
+  const filesAnalyzed = files.length + largeFiles.length + binaries.slice(0, binaryLimit).length
   return {
-    findings,
+    findings: collector.findings(),
+    allStats: collector.stats(),
     findingsTotal,
     filesAnalyzed,
-    filesDiscovered: filesAnalyzed + skipped.big,
-    scanComplete: !truncated,
-    scanCoverage: { sourceFiles, buildFiles, binaryFiles: skipped.binary, largeFiles: largeFiles.length, parseFailures: 0 },
+    filesDiscovered: filesAnalyzed + hardSkipped.length + skipped.binary + skipped.ignored + binarySkippedCount,
+    scanComplete: !truncated && hardSkipped.length === 0 && binarySkippedCount === 0,
+    scanCoverage: {
+      sourceFiles,
+      buildFiles,
+      binaryFiles: binaries.slice(0, binaryLimit).length,
+      largeFiles: largeFiles.length,
+      parseFailures: 0,
+      hardSkippedFiles: hardSkipped.length,
+      binarySkippedFiles: binarySkippedCount,
+    },
     filesSkipped: skipped,
+    hardSkipped: hardSkippedMeta,
+    ignored,
     languages,
     largestFiles: largest.slice(0, 5),
   }
@@ -396,8 +804,12 @@ export function resolvePatchEntry(packageRoot, name, packageName = '') {
     candidates.push(base, base + '.js', base + '.mjs', join(base, 'index.js'), join(base, 'index.mjs'))
   }
   for (const c of candidates) {
-    // containment:manifest 派生的任何路径都不可信
-    if (!isInsideRoot(packageRoot, c)) throw new PathEscapeError(c)
+    // containment:manifest 派生的任何路径都不可信(词法 + realpath + symlink)
+    try {
+      resolveInside(packageRoot, c)
+    } catch {
+      throw new PathEscapeError(c)
+    }
     try {
       if (statSync(c).isFile()) return c
     } catch {

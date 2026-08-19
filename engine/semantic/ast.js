@@ -4,18 +4,33 @@
  * confidence 语义:
  *   - AST 精确识别 → confidence: high
  *   - 正则兜底(解析失败/非 JS 变体)→ confidence: medium
+ *
+ * acorn 加载:优先包依赖;缺失时回退仓库内 vendored 副本
+ * (.github/actions/dsh-sentinel/vendor/,供自包含 GitHub Action 运行时使用)。
  */
 
-import { parse } from 'acorn'
+let acornParse = null
+try {
+  const acorn = await import('acorn')
+  acornParse = acorn.parse
+} catch {
+  try {
+    const vendored = await import('../../.github/actions/dsh-sentinel/vendor/acorn.mjs')
+    acornParse = vendored.parse
+  } catch {
+    acornParse = null
+  }
+}
 
 /** 解析 JS/TS(TS 语法用宽松模式兜底:先按最新 ECMAScript 解析)。 */
 export function parseJavaScript(code) {
+  if (typeof acornParse !== 'function') return null
   const options = { ecmaVersion: 'latest', sourceType: 'module', allowHashBang: true, allowReturnOutsideFunction: true }
   try {
-    return parse(code, options)
+    return acornParse(code, options)
   } catch {
     try {
-      return parse(code, { ...options, sourceType: 'script' })
+      return acornParse(code, { ...options, sourceType: 'script' })
     } catch {
       return null
     }
@@ -47,6 +62,18 @@ export function staticString(node) {
   return null
 }
 
+/** 解析常量表达式:字符串字面量 / 模板 / 常量 '+' 拼接('ex'+'ec' → 'exec')。 */
+export function staticStringOf(node) {
+  const direct = staticString(node)
+  if (direct !== null) return direct
+  if (node?.type === 'BinaryExpression' && node.operator === '+') {
+    const left = staticStringOf(node.left)
+    const right = staticStringOf(node.right)
+    if (left !== null && right !== null) return left + right
+  }
+  return null
+}
+
 /**
  * 解析调用目标名:
  *   - Identifier: 'exec'
@@ -64,13 +91,8 @@ export function calleeName(node) {
       return null
     }
     // 计算属性:字符串字面量或 'ex'+'ec' 拼接
-    const prop = staticString(node.property)
+    const prop = staticStringOf(node.property)
     if (prop !== null) return `${obj}.${prop}`
-    if (node.property.type === 'BinaryExpression' && node.property.operator === '+') {
-      const left = staticString(node.property.left)
-      const right = staticString(node.property.right)
-      if (left !== null && right !== null) return `${obj}.${left}${right}`
-    }
     return null
   }
   return null

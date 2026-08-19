@@ -1,6 +1,7 @@
 /**
  * tarball 获取 + 隔离解包 + 完整性校验。
  * 红线:解包后不运行 npm install,不执行任何生命周期脚本(preinstall/install/postinstall/prepare)。
+ * 解包使用自包含安全解析(engine/package/tar.js):防 traversal / symlink / tar bomb。
  */
 
 import { createHash } from 'node:crypto'
@@ -8,6 +9,7 @@ import { readFileSync, rmSync, mkdirSync, readdirSync, renameSync } from 'node:f
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
+import { extractTarballSafe, TarSafetyError } from './tar.js'
 
 /** sha512 base64 integrity(npm 格式)与文件内容比对。 */
 export function verifyIntegrity(filePath, integrity) {
@@ -46,24 +48,21 @@ export async function downloadTarball(tarballUrl, integrity) {
 
 /**
  * 把 tarball 解包到隔离目录(quarantine)。绝不执行包内任何脚本。
- * @returns {Promise<{dir: string, cleanup: () => void}>}
+ * 任何成功 / 失败 / 异常路径都必须 finally cleanup(调用方负责)。
+ * @returns {Promise<{dir: string, cleanup: () => void, entries: number, unpackedBytes: number}>}
  */
 export async function extractTarball(tarballPath) {
   const base = join(tmpdir(), `sentinel-quarantine-${Date.now()}-${Math.random().toString(36).slice(2)}`)
   const extractDir = join(base, 'x')
   mkdirSync(extractDir, { recursive: true })
-  const r = spawnSync('tar.exe', ['-xf', tarballPath, '-C', extractDir], { stdio: 'ignore' })
-  if (r.status !== 0) {
-    rmSync(base, { recursive: true, force: true })
-    throw new Error('tarball 解包失败')
-  }
+  const stats = extractTarballSafe(tarballPath, extractDir)
   // npm tarball 内容在 package/ 下;若缺则用整个解包目录。
   const pkgDir = join(extractDir, 'package')
   const dir = readdirSync(extractDir).length === 1 && readdirSync(extractDir)[0] === 'package'
     ? pkgDir
     : extractDir
   const cleanup = () => rmSync(base, { recursive: true, force: true })
-  return { dir, cleanup }
+  return { dir, cleanup, entries: stats.entries, unpackedBytes: stats.unpackedBytes }
 }
 
 /** 把已解包的 package/ 内容平铺到目标目录(与 npm pack 布局一致)。 */
@@ -73,3 +72,5 @@ export function flattenPackage(srcDir, destDir) {
     renameSync(join(srcDir, entry), join(destDir, entry))
   }
 }
+
+export { TarSafetyError }

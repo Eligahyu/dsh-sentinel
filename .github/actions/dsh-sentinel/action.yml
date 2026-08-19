@@ -1,0 +1,80 @@
+# dsh-sentinel GitHub Action
+#
+# 在 PR / push 时对插件源码或仓库运行 dsh-sentinel 静态安全扫描,
+# 输出 SARIF(供 GitHub Code Scanning 展示)并依据 fail-on 决定 job 是否失败。
+#
+# 重要定位:SARIF 只是"结果标准化"格式,Action 只是"自动化执行层"——
+# 真正检测能力来自 dsh-sentinel engine(仓库内 bin/sentinel.mjs)。
+#
+# 用法(workflow):
+#   steps:
+#     - uses: actions/checkout@v4
+#     - uses: Eligahyu/dsh-sentinel@v1
+#       with:
+#         path: .
+#         mode: source
+#         fail-on: high
+#     - name: Upload SARIF
+#       if: always()
+#       uses: github/codeql-action/upload-sarif@v3
+#       with:
+#         sarif_file: sentinel.sarif
+
+name: 'dsh-sentinel'
+description: 'DSH 插件/源码静态安全扫描并生成 SARIF(供 GitHub Code Scanning)'
+author: 'Eligahyu'
+
+inputs:
+  path:
+    description: '扫描目标(目录或单文件)'
+    required: false
+    default: '.'
+  mode:
+    description: '扫描模式:source(默认,跳过 dist/build)| package(扫构建产物)| profile'
+    required: false
+    default: 'source'
+  fail-on:
+    description: '任一 finding ≥ 该级别时 job 失败:critical | high | medium | low'
+    required: false
+    default: 'high'
+  fail-on-incomplete:
+    description: '扫描不完整(maxFiles/文件大小/插件数受限)时以退出码 3 失败'
+    required: false
+    default: 'false'
+  max-files:
+    description: '扫描文件数上限'
+    required: false
+    default: '3000'
+  sarif-file:
+    description: 'SARIF 输出文件名(相对 workspace)'
+    required: false
+    default: 'sentinel.sarif'
+
+outputs:
+  exit-code:
+    description: 'dsh-sentinel 退出码(0 通过 / 1 阈值被超过 / 2 运行错误 / 3 不完整扫描)'
+    value: ${{ steps.run.outputs.exit-code }}
+  sarif-path:
+    description: 'SARIF 文件绝对路径'
+    value: ${{ steps.run.outputs.sarif-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Run dsh-sentinel
+      id: run
+      shell: bash
+      run: |
+        set +e
+        node "${{ github.action_path }}/bin/sentinel.mjs" "${{ inputs.path }}" \
+          --mode "${{ inputs.mode }}" \
+          --format sarif \
+          --out "${{ github.workspace }}/${{ inputs.sarif-file }}" \
+          --max-files "${{ inputs.max-files }}" \
+          --fail-on "${{ inputs.fail-on }}" \
+          ${{ inputs.fail-on-incomplete == 'true' && '--fail-on-incomplete' || '' }}
+        code=$?
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        echo "sarif-path=${{ github.workspace }}/${{ inputs.sarif-file }}" >> "$GITHUB_OUTPUT"
+        echo "dsh-sentinel exit code: $code (0=ok 1=threshold-exceeded 2=runtime-error 3=incomplete-scan)"
+        exit "$code"

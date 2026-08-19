@@ -7,14 +7,18 @@
  *   dsh-sentinel --profile <name> [--json] [--out <file>] [--max-plugins <n>]
  *   dsh-sentinel --rules
  *
+ * 配置优先级:CLI 参数 > sentinel.config.json > 内置默认。
+ *
  * Exit codes (CI-friendly):
  *   0  verdict safe | review
- *   1  verdict risky | dangerous
+ *   1  verdict risky | dangerous(或 --fail-on 阈值被超过)
  *   2  usage error / scan failure
+ *   3  incomplete scan(--fail-on-incomplete / --strict-exit-codes 时)
  */
 
 import { scan, scanProfile, RULES, VERSION } from '../engine/index.js'
 import { SEVERITY_ORDER } from '../engine/rules.js'
+import { relative as pathRelative, isAbsolute as pathIsAbsolute } from 'node:path'
 
 const VERDICT_EMOJI = { safe: '✅', review: '👀', risky: '⚠️', dangerous: '🚨' }
 const SEV_LABEL = { critical: 'CRITICAL', high: 'HIGH', medium: 'MEDIUM', low: 'low', info: 'info' }
@@ -31,22 +35,29 @@ Usage:
   dsh-sentinel --profile <name>       audit third-party plugins in a DSH profile
   dsh-sentinel npm:<package>[@ver]    install-time audit of an npm package (quarantine, no install)
   dsh-sentinel audit-install <pkg>    same as npm:<pkg>
+  dsh-sentinel diff <srcDir> <spec>   source-vs-published-package drift diff
   dsh-sentinel --rules                print the rule catalog
 
 Options:
   --json          emit the canonical report as JSON
-  --format <fmt>  output format: json | text | sarif
+  --format <fmt>  output format: json | text | sarif | html
   --out <file>    write the report to a file, print a summary to stdout
   --baseline <f>  diff against a previous report (by stable fingerprint)
-  --fail-on <lvl> exit 1 when any finding ≥ level (critical|high|medium|low)
+  --fail-on <lvl> exit 1 when any finding ≥ level (critical|high|medium|low); CLI 优先于 config
+  --fail-on-incomplete  exit 3 when the scan is incomplete (files/bytes/plugins capped)
+  --strict-exit-codes   0=ok 1=threshold 2=runtime/usage 3=incomplete scan
   --max-files <n> cap scanned files (default 3000)
   --max-plugins <n> cap plugins scanned per profile (default 12)
+  --max-bytes <n>  max bytes per file before large-file-lite (default 524288)
   --mode <mode>   scan mode: source(默认,跳过 dist/build) | package(扫构建产物) | profile
   --config <path> sentinel.config.json path (auto-detected in cwd)
   --include-builtins  include trusted @deepseek-ai scopes in profile audits
+  --redact-paths  anonymize absolute paths in shareable reports (<workspace>/...)
+  --advisories    query OSV for known vulnerabilities (default OFF; uploads name+version only)
+  --provenance    read npm provenance attestations (default OFF)
   -h, --help      show this help
 
-Exit codes: 0 = safe/review, 1 = risky/dangerous, 2 = usage error.
+Exit codes: 0 = safe/review, 1 = risky/dangerous or --fail-on exceeded, 2 = usage error.
 `)
 }
 
@@ -66,15 +77,23 @@ function formatText(report, out) {
   if (m?.name) out.write(`manifest      ${m.name}${m.version ? `@${m.version}` : ''} · isBundle=${m.isBundle}${m.patch ? ` · patch=${m.patch}` : ''}\n`)
   if (report.target.kind === 'profile') {
     out.write(`plugins       ${report.profile.pluginsScanned.join(', ') || '(none)'}\n`)
-    if (report.profile.pluginsSkipped.length > 0) out.write(`skipped       ${report.profile.pluginsSkipped.length} (built-ins / others)\n`)
+    if (report.profile.pluginsSkipped.length > 0) {
+      out.write(`skipped       ${report.profile.pluginsSkipped.length} plugins:\n`)
+      for (const sk of report.profile.pluginsSkipped) {
+        const name = typeof sk === 'string' ? sk : sk.name
+        const reason = typeof sk === 'string' ? '' : ` (${sk.reason})`
+        out.write(`                - ${name}${reason}\n`)
+      }
+    }
   }
   out.write(`files         ${s.filesAnalyzed}/${s.filesDiscovered} analyzed` +
-    ` (${report.scanCoverage?.buildFiles ?? 0} build · ${report.scanCoverage?.largeFiles ?? 0} large-lite · ${s.filesSkipped ?? 0} binary)\n`)
+    ` (${report.scanCoverage?.buildFiles ?? 0} build · ${report.scanCoverage?.largeFiles ?? 0} large-lite · ${report.scanCoverage?.binaryFiles ?? 0} binary · ${report.scanCoverage?.hardSkippedFiles ?? 0} hard-skipped)\n`)
   out.write(`findings      ${s.findingsTotal} total(返回 ${s.findingsReturned}) · ` +
     SEVERITY_ORDER.map((sev) => `${SEV_LABEL[sev]} ${s.bySeverity[sev]}`).join(' · ') + '\n')
-  out.write(`context       source ${s.byContext?.source ?? 0} · test ${s.byContext?.test ?? 0} (test 文件命中降一级计分)\n`)
+  out.write(`context       source ${s.byContext?.source ?? 0} · test ${s.byContext?.test ?? 0} (test 文件命中降一级计分,除非被运行入口可达)\n`)
   out.write(`categories    ` +
     Object.entries(s.byCategory).filter(([, n]) => n > 0).map(([c, n]) => `${c} ${n}`).join(' · ') + '\n')
+  if (s.scoreBasedOnAllFindings) out.write(`scoring       score 基于全部 ${s.findingsTotal} 条有效命中(scoreBasedOnAllFindings)\n`)
   out.write(`scan time     ${s.scanMs} ms\n`)
 
   if (report.findings.length > 0) {
@@ -83,7 +102,7 @@ function formatText(report, out) {
       const loc = f.package ? `${f.package}:${f.file}:${f.line}` : `${f.file}:${f.line}`
       const sev = SEV_LABEL[f.severity].padEnd(8)
       const sevCode = { critical: 31, high: 33, medium: 33, low: 0, info: 0 }[f.severity] ?? 0
-      const tag = `${f.testFile ? ' (test)' : ''}${f.bundleFile ? ' (bundle)' : ''}${f.redacted ? ' (secret redacted)' : ''}`
+      const tag = `${f.testFile ? ' (test)' : ''}${f.bundleFile ? ' (bundle)' : ''}${f.redacted ? ' (secret redacted)' : ''}${f.suppressedForScore ? ' (suppressed-for-score)' : ''}`
       out.write(`  ${color(sevCode, sev, tty)} ${f.id} ${loc}${tag}\n`)
       out.write(`    ${f.message}\n`)
       if (f.snippet) out.write(`    ${f.snippet.slice(0, 120)}${f.snippet.length > 120 ? '…' : ''}\n`)
@@ -98,10 +117,31 @@ function formatText(report, out) {
   out.write('\n')
 }
 
+/** 可分享输出中的绝对路径匿名化(<workspace>/...)。 */
+function redactReportPaths(report, basePath) {
+  const rel = (p) => {
+    if (!p || typeof p !== 'string') return p
+    const r = pathRelative(basePath, p)
+    if (pathIsAbsolute(p) && !r.startsWith('..') && r !== '..') return r
+    return p
+  }
+  report.target.path = `<workspace>/${report.target.path.split(/[\\/]/).filter(Boolean).pop() ?? 'target'}`
+  for (const f of report.findings ?? []) {
+    f.file = rel(f.file) ?? f.file
+  }
+  for (const s of report.stats?.largestFiles ?? []) {
+    s.file = rel(s.file) ?? s.file
+  }
+  for (const h of report.hardSkipped ?? []) {
+    h.path = rel(h.path) ?? h.path
+  }
+  return report
+}
+
 export async function main(argv, io = { stdout: process.stdout, stderr: process.stderr }) {
   const { stdout, stderr } = io
   const args = [...argv]
-  const opts = { json: false, format: 'text', out: null, maxFiles: undefined, maxPlugins: undefined, configPath: null, includeBuiltins: false, baseline: null, failOn: null, advisories: false, provenance: false }
+  const opts = { json: false, format: 'text', out: null, maxFiles: undefined, maxPlugins: undefined, maxBytes: undefined, configPath: null, includeBuiltins: false, baseline: null, failOn: null, advisories: false, provenance: false, redactPaths: false, failOnIncomplete: false, strictExitCodes: false }
   const positional = []
   for (let i = 0; i < args.length; i += 1) {
     const a = args[i]
@@ -109,6 +149,9 @@ export async function main(argv, io = { stdout: process.stdout, stderr: process.
       case '--json': opts.json = true; opts.format = 'json'; break
       case '--advisories': opts.advisories = true; break
       case '--provenance': opts.provenance = true; break
+      case '--redact-paths': opts.redactPaths = true; break
+      case '--fail-on-incomplete': opts.failOnIncomplete = true; break
+      case '--strict-exit-codes': opts.strictExitCodes = true; break
       case '--format': {
         const fmt = args[++i]
         if (!['json', 'text', 'sarif', 'html'].includes(fmt)) {
@@ -131,6 +174,7 @@ export async function main(argv, io = { stdout: process.stdout, stderr: process.
       case '--out': opts.out = args[++i]; break
       case '--max-files': opts.maxFiles = Number(args[++i]); break
       case '--max-plugins': opts.maxPlugins = Number(args[++i]); break
+      case '--max-bytes': opts.maxBytes = Number(args[++i]); break
       case '--config': opts.configPath = args[++i]; break
       case '--include-builtins': opts.includeBuiltins = true; break
       case '--rules': {
@@ -162,20 +206,33 @@ export async function main(argv, io = { stdout: process.stdout, stderr: process.
     }
   }
 
+  let effectiveFailOn = null
   const run = (async () => {
-    // 配置:默认 ← sentinel.config.json ← CLI 覆盖
+    // 配置:默认 ← sentinel.config.json(优先从目标目录检测)← CLI 覆盖(CLI 优先)
     const { loadConfig, mergeOverrides } = await import('../engine/config.js')
-    const { config } = loadConfig({ configPath: opts.configPath })
+    const targetLike = positional[0] && !['audit-install', 'diff'].includes(positional[0]) && !positional[0].startsWith('npm:')
+    const { config } = loadConfig({
+      configPath: opts.configPath,
+      cwd: targetLike && opts.profile === undefined ? positional[0] : process.cwd(),
+    })
+    if (config.redactSecrets === false) {
+      stderr.write('dsh-sentinel: 警告 — config 中 redactSecrets=false 被忽略:secret 脱敏永远开启(不可关闭)\n')
+    }
     const effective = mergeOverrides(config, {
       mode: opts.mode,
       maxFiles: opts.maxFiles,
+      maxBytesPerFile: opts.maxBytes,
+      maxFindings: opts.maxFindings,
+      maxPlugins: opts.maxPlugins,
       includeBuiltins: opts.includeBuiltins ? true : undefined,
+      failOn: opts.failOn ?? config.failOn,
     })
+    effectiveFailOn = effective.failOn ?? null
     // 安装前审计:audit-install <pkg> 或 npm:<pkg>
     const auditSpec = positional[0] === 'audit-install' ? positional[1] : positional[0]?.startsWith('npm:') ? positional[0] : null
     if (auditSpec) {
       const { auditNpmSpec } = await import('../engine/package/audit.js')
-      return { __audit: await auditNpmSpec(auditSpec, { maxFiles: effective.maxFiles, advisories: opts.advisories, provenance: opts.provenance }) }
+      return { __audit: await auditNpmSpec(auditSpec, { maxFiles: effective.maxFiles, maxFindings: effective.maxFindings, advisories: opts.advisories || config.advisories, provenance: opts.provenance }) }
     }
     // 源码 ↔ 发布包 diff
     if (positional[0] === 'diff') {
@@ -184,8 +241,10 @@ export async function main(argv, io = { stdout: process.stdout, stderr: process.
     }
     if (opts.profile !== undefined) {
       return scanProfile(opts.profile, {
-        maxPlugins: opts.maxPlugins,
+        maxPlugins: effective.maxPlugins,
         maxFiles: effective.maxFiles,
+        maxFindings: effective.maxFindings,
+        maxBytesPerFile: effective.maxBytesPerFile,
         includeBuiltins: effective.includeBuiltins,
         trustedScopes: config.trustedScopes,
       })
@@ -194,7 +253,14 @@ export async function main(argv, io = { stdout: process.stdout, stderr: process.
       usage(stderr)
       return null
     }
-    return scan(positional[0], { maxFiles: effective.maxFiles, mode: effective.mode })
+    return scan(positional[0], {
+      maxFiles: effective.maxFiles,
+      maxBytesPerFile: effective.maxBytesPerFile,
+      maxFindings: effective.maxFindings,
+      mode: effective.mode,
+      ignore: config.ignore,
+      includeBuildArtifacts: config.includeBuildArtifacts,
+    })
   })()
 
   try {
@@ -247,18 +313,25 @@ export async function main(argv, io = { stdout: process.stdout, stderr: process.
         stdout.write(`  tarball sha256: ${audit.tarballSha256}\n`)
         stdout.write(`  integrity: ${audit.integrityOk ? 'OK' : `FAIL (${audit.integrityReason ?? 'unknown'})`}\n`)
         stdout.write(`  dependencies: ${audit.dependencyCount} · install scripts: ${audit.installScripts.join(', ') || 'none'}\n`)
+        if (audit.extractionError) stdout.write(`  extraction: BLOCKED (${audit.extractionError})\n`)
       }
       if (opts.format === 'json') {
-        stdout.write(JSON.stringify(report, null, 2) + '\n')
+        // audit 元数据必须与 report 一起输出(Harness Tool 与 CLI 保持一致)
+        const payload = { ...report, audit }
+        if (opts.redactPaths) redactReportPaths(payload, positional[1] ?? process.cwd())
+        stdout.write(JSON.stringify(payload, null, 2) + '\n')
       } else {
         formatText(report, stdout)
       }
       if (opts.out) {
         const { writeFileSync } = await import('node:fs')
-        writeFileSync(opts.out, JSON.stringify(report, null, 2) + '\n')
+        writeFileSync(opts.out, JSON.stringify(opts.format === 'json' ? { ...report, audit } : report, null, 2) + '\n')
       }
       return audit.verdict === 'BLOCK-RECOMMENDED' ? 1 : 0
     }
+
+    // 输出前:可分享报告路径匿名化(--redact-paths)
+    if (opts.redactPaths) redactReportPaths(output, positional[0] ?? process.cwd())
 
     // 输出格式:json / sarif / html / text
     if (opts.format === 'html') {
@@ -273,7 +346,7 @@ export async function main(argv, io = { stdout: process.stdout, stderr: process.
       }
     } else if (opts.format === 'sarif') {
       const { toSarif } = await import('../engine/output/sarif.js')
-      const sarif = JSON.stringify(toSarif(output), null, 2) + '\n'
+      const sarif = JSON.stringify(toSarif(output, { basePath: positional[0] }), null, 2) + '\n'
       if (opts.out) {
         const { writeFileSync } = await import('node:fs')
         writeFileSync(opts.out, sarif)
@@ -292,14 +365,21 @@ export async function main(argv, io = { stdout: process.stdout, stderr: process.
       formatText(output, stdout)
     }
 
-    // 退出码:--fail-on 阈值优先,否则按裁决
-    if (opts.failOn) {
+    // 退出码:--fail-on 阈值优先(CLI > config),否则按裁决
+    let exitCode = 0
+    if (effectiveFailOn) {
       const order = { critical: 0, high: 1, medium: 2, low: 3 }
-      const threshold = order[opts.failOn]
+      const threshold = order[effectiveFailOn]
       const exceeded = output.findings.some((f) => order[f.severity] !== undefined && order[f.severity] <= threshold)
-      return exceeded ? 1 : 0
+      exitCode = exceeded ? 1 : 0
+    } else {
+      exitCode = output.summary.verdict === 'risky' || output.summary.verdict === 'dangerous' ? 1 : 0
     }
-    return output.summary.verdict === 'risky' || output.summary.verdict === 'dangerous' ? 1 : 0
+    // 不完整扫描:--fail-on-incomplete / --strict-exit-codes → exit 3
+    if (output.summary.scanComplete === false && (opts.failOnIncomplete || opts.strictExitCodes)) {
+      if (exitCode === 0) exitCode = 3
+    }
+    return exitCode
   } catch (error) {
     stderr.write(`dsh-sentinel: ${error?.message ?? String(error)}\n`)
     return 2

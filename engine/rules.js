@@ -10,7 +10,9 @@
  * Line patterns are tested per line; content patterns are tested once against
  * the whole file. `filePattern` restricts a rule to matching relative paths.
  * Findings inside test files are tagged `testFile` and scored one level lower
- * (see engine/report.js) — test fixtures are usually deliberate.
+ * UNLESS reachable from a runtime entry (see engine/report.js + engine/index.js).
+ * minified/bundle 内容只作为 evidence(bundleFile 标记),绝不自动降 severity:
+ * 置信度由检测方式决定(regex-only → medium,AST/taint → high)。
  */
 
 export const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low', 'info']
@@ -48,10 +50,15 @@ const CODE = CODE_EXT
 /** Hardcoded-secret detector used by SEN-CRED-003 (kept private, exported below). */
 const SECRET_PATTERNS = [
   { name: 'OpenAI/DeepSeek-style API key', re: /\bsk-[A-Za-z0-9_-]{20,}\b/ },
+  { name: 'Anthropic API key', re: /\bsk-ant-[A-Za-z0-9_-]{20,}\b/ },
   { name: 'AWS access key', re: /\bAKIA[0-9A-Z]{16}\b/ },
   { name: 'GitHub personal access token', re: /\bghp_[A-Za-z0-9]{36}\b/ },
+  { name: 'GitHub fine-grained PAT', re: /\bgithub_pat_[A-Za-z0-9_]{22,}\b/ },
+  { name: 'npm access token', re: /\bnpm_[A-Za-z0-9]{36}\b/ },
+  { name: 'Google API key', re: /\bAIza[0-9A-Za-z_-]{35}\b/ },
   { name: 'Slack token', re: /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/ },
   { name: 'JWT-style token', re: /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/ },
+  { name: 'PEM private key header', re: /-----BEGIN (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----/ },
 ]
 
 export const RULES = Object.freeze([
@@ -156,10 +163,10 @@ export const RULES = Object.freeze([
     ignoreComments: true,
     linePatterns: [
       {
-        re: /(?:readFile|readFileSync|createReadStream|openSync|require\s*\(\s*["'`])[^;\n]{0,160}?(?:\.ssh[\\\/]|id_rsa|id_ed25519|\.aws[\\\/]|credentials|\.npmrc|\.netrc|\.kube[\\\/]|\.docker[\\\/]config|\.git-credentials)/i,
+        re: /(?:readFile|readFileSync|createReadStream|openSync|require\s*\(\s*["'`])[^;\n]{0,160}?(?:\.ssh[\\\/]|id_rsa|id_ed25519|\.aws[\\\/]|credentials|\.npmrc|\.netrc|\.kube[\\\/]|\.docker[\\\/]config|\.git-credentials|\.pypirc|\.yarnrc|\.env\.local|\.env\.production|application_default_credentials\.json|\.azure[\\\/]|kubeconfig)/i,
       },
       {
-        re: /(?:\.ssh[\\\/]|id_rsa|id_ed25519|\.aws[\\\/]credentials|\.npmrc|\.netrc|\.kube[\\\/]|\.git-credentials)[^;\n]{0,120}?(?:readFile|cat|type\s+)/i,
+        re: /(?:\.ssh[\\\/]|id_rsa|id_ed25519|\.aws[\\\/]credentials|\.npmrc|\.netrc|\.kube[\\\/]|\.git-credentials|\.pypirc|\.yarnrc|\.env\.local|\.env\.production|application_default_credentials\.json|kubeconfig)[^;\n]{0,120}?(?:readFile|cat|type\s+)/i,
       },
     ],
   },
@@ -567,6 +574,33 @@ export const RULES = Object.freeze([
       /^\s*"(?:patch|main|exports|files|bin)"\s*:/,
     ],
   },
+  {
+    id: 'SEN-SUPPLY-002',
+    name: 'dependency-install-script',
+    severity: 'medium',
+    category: 'supplychain',
+    message: '依赖包携带安装生命周期脚本(需审计依赖链)',
+    description: '依赖元数据显示依赖包含 preinstall/install/postinstall 脚本。安装时以用户完整权限执行,是供应链攻击的主要载体。',
+    recommendation: '审查依赖链中所有 install 脚本内容;尽量选择无生命周期脚本的依赖。',
+  },
+  {
+    id: 'SEN-SUPPLY-004',
+    name: 'integrity-mismatch',
+    severity: 'high',
+    category: 'supplychain',
+    message: 'tarball integrity 与 registry 声明不一致',
+    description: '下载的 tarball 的 sha512 与 registry 返回的 integrity 字段不匹配——可能是传输篡改、镜像污染或注册表被入侵。',
+    recommendation: '拒绝安装;从可信渠道重新获取并复核来源。',
+  },
+  {
+    id: 'SEN-SUPPLY-005',
+    name: 'tar-path-traversal',
+    severity: 'critical',
+    category: 'supplychain',
+    message: 'tarball 解包路径逃逸 / 符号链接 / 硬链接(zip-slip 类攻击)',
+    description: '包内条目试图写入解包目录之外(../../)、绝对路径或通过 symlink/hardlink 逃逸隔离目录。',
+    recommendation: '拒绝安装;这是恶意打包的典型特征。',
+  },
 
   // ─────────────────────────── agent(Harness Tool 语义规则,由 semantic 引擎产生)───────────────────────────
   {
@@ -653,6 +687,78 @@ export const RULES = Object.freeze([
     message: '工具描述与代码能力明显不符(潜在隐藏副作用)',
     description: '工具描述看似普通(天气/问候/换算等),但代码含 exec/fetch/文件读写等敏感能力。',
     recommendation: '人工核对工具描述与实际行为的差异。',
+  },
+
+  // ─────────────────────────── binary(由 engine/binary 产生)───────────────────────────
+  {
+    id: 'SEN-BIN-001',
+    name: 'native-binary-present',
+    severity: 'info',
+    category: 'binary',
+    message: '携带原生二进制(native binary present)',
+    description: '插件包内含可执行原生代码(.exe/.dll/.so/.node 等)。可能完全正当(构建工具/平台库),但原生代码无法逐行静态审阅,需人工确认来源。',
+    recommendation: '核对二进制与源码仓库的对应关系;无源码对应的原生代码按高度可疑处理。',
+  },
+  {
+    id: 'SEN-BIN-002',
+    name: 'suspicious-binary-strings',
+    severity: 'medium',
+    category: 'binary',
+    message: '二进制内发现可疑字符串(外传端点/凭据标记/shell 工具)',
+    description: '原生二进制的可打印字符串含 webhook/discord/ngrok、AWS_/API_KEY、curl/powershell、.ssh 等标记。注意:仅凭字符串不能判恶意,但必须人工复核。',
+    recommendation: '人工检查二进制行为;无正当理由视为高度可疑。',
+  },
+  {
+    id: 'SEN-BIN-003',
+    name: 'high-entropy-binary',
+    severity: 'medium',
+    category: 'binary',
+    message: '高熵二进制(疑似压缩/加密/加壳)',
+    description: '采样熵值过高,通常表示压缩/加密/加壳。不直接判恶意,但意味着无法静态核验内容。',
+    recommendation: '与构建产物对比;加壳二进制需人工复核。',
+  },
+  {
+    id: 'SEN-WASM-001',
+    name: 'wasm-module-present',
+    severity: 'info',
+    category: 'binary',
+    message: '包含 WebAssembly 模块',
+    description: '包内含 .wasm 模块。WASM 常用于合法性能敏感代码,也可能用于隐藏逻辑。',
+    recommendation: '确认 WASM 来源与构建方式;无文档说明的原生/WASM 代码需人工复核。',
+  },
+
+  // ─────────────────────────── persistence(最低限度)───────────────────────────
+  {
+    id: 'SEN-PERSIST-001',
+    name: 'persistence-mechanism',
+    severity: 'medium',
+    category: 'persistence',
+    message: '使用系统持久化机制(cron / 计划任务 / 注册表 Run / systemd / launchd / Startup)',
+    description: '代码注册自启动/定时任务:可让代码在用户不知情时反复执行。部分监控/提醒类工具有正当需求,但必须人工确认。',
+    recommendation: '确认持久化机制的必要性与可见性;任何"安装后自启动"行为都应向用户明示。',
+    filePattern: CODE,
+    ignoreComments: true,
+    linePatterns: [
+      { re: /\b(?:crontab|schtasks|systemctl\s+enable|update-rc\.d|launchctl|reg\s+add)[^;\n]{0,120}/i },
+      { re: /(?:HKCU|HKLM)[\\/][^;\n]{0,120}?\\Run\b/i },
+      { re: /Startup\s*(?:folder|directory)|AppData[\\/]Roaming[\\/]Microsoft[\\/]Windows[\\/]Start\s+Menu/i },
+    ],
+  },
+  {
+    id: 'SEN-PERSIST-002',
+    name: 'shell-profile-persist',
+    severity: 'high',
+    category: 'persistence',
+    message: '写入 shell profile(.bashrc/.zshrc/PowerShell profile)——持久后门特征',
+    description: '代码向 .bashrc/.zshrc/.profile 或 PowerShell $PROFILE 写入内容。正常插件没有任何理由修改用户的 shell 启动文件。',
+    recommendation: '视为高度可疑:修改 shell profile 是经典持久化后门,需人工逐行确认。',
+    filePattern: CODE,
+    ignoreComments: true,
+    linePatterns: [
+      {
+        re: /(?:writeFile|writeFileSync|appendFile|appendFileSync|createWriteStream|openSync|exec|execSync|spawn|spawnSync)[^;\n]{0,120}?(?:\.bashrc|\.zshrc|\.profile|\.bash_profile|\.zprofile|Microsoft\.PowerShell_profile|profile\.ps1)/i,
+      },
+    ],
   },
 ])
 

@@ -1,6 +1,7 @@
 /**
  * HTML 报告(Phase 8):单文件、无外部依赖、可直接分享。
- * 必须明确显示 Scan complete: YES / NO。
+ * 必须明确显示:Scan complete YES/NO、risk score、findings、confidence、
+ * attack chains、supply chain、binary、ignored/skipped、hard-skipped。
  */
 
 import { VERSION } from '../version.js'
@@ -15,14 +16,27 @@ export function toHtml(report) {
       <td>${f.severity}</td>
       <td>${f.confidence ?? 'medium'}</td>
       <td>${escapeHtml(f.message)}</td>
-      <td>${escapeHtml(f.file)}:${f.line ?? 1}</td>
+      <td>${escapeHtml(f.package ? `${f.package}:` : '')}${escapeHtml(f.file)}:${f.line ?? 1}</td>
       <td><code>${escapeHtml(f.snippet ?? '')}</code></td>
       <td>${escapeHtml(f.recommendation ?? '')}</td>
     </tr>`).join('')
 
   const pluginsRows = (report.profile?.plugins ?? []).map((p) => `
-    <tr><td>${escapeHtml(p.name)}</td><td>${p.version}</td><td>${p.direct ? 'direct' : (p.transitive ? 'transitive' : 'other')}</td>
-    <td>${p.dependencies}</td><td>${p.findings}</td></tr>`).join('')
+    <tr><td>${escapeHtml(p.name)}</td><td>${p.version}</td><td>${escapeHtml(p.role ?? (p.direct ? 'direct' : (p.transitive ? 'transitive' : 'other')))}</td>
+    <td>${escapeHtml(p.parent ?? '')}</td><td>${p.dependencies}</td><td>${p.findings}</td></tr>`).join('')
+
+  const chainRows = (report.attackChains ?? []).map((c, i) => `
+    <tr><td>CHAIN-${i + 1}</td><td>${escapeHtml(c.name ?? '')}</td><td>${c.severity ?? ''}</td>
+    <td><code>${escapeHtml((c.flow ?? []).join(' → '))}</code></td></tr>`).join('')
+
+  const ignoredRows = (report.ignored ?? []).map((g) => `
+    <tr><td><code>${escapeHtml(g.pattern)}</code></td><td>${g.count}</td></tr>`).join('')
+
+  const hardRows = (report.hardSkipped ?? []).map((h) => `
+    <tr><td>${escapeHtml(h.path)}</td><td>${h.size}</td><td><code>${escapeHtml(String(h.sha256 ?? '').slice(0, 16))}…</code></td>
+    <td>${escapeHtml(h.extension ?? '')}</td><td>${escapeHtml(h.classification ?? '')}</td></tr>`).join('')
+
+  const supplyChain = report.supplyChain
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -47,20 +61,29 @@ code{white-space:pre-wrap;word-break:break-all;font-size:12px}
 <p class="meta">
   target: ${escapeHtml(report.target.path)}<br>
   scan complete: <b>${s.scanComplete ? 'YES' : 'NO'}</b>${s.scanComplete ? '' : ' <span class="warn">⚠ INCOMPLETE SCAN — 结果仅代表已分析部分</span>'}<br>
-  files: ${s.filesAnalyzed}/${s.filesDiscovered} analyzed (build ${report.scanCoverage?.buildFiles ?? 0} · large-lite ${report.scanCoverage?.largeFiles ?? 0} · binary ${report.scanCoverage?.binaryFiles ?? 0})<br>
-  findings: ${s.findingsTotal} total · returned ${s.findingsReturned}${s.findingsTruncated ? ' · <b>truncated</b>' : ''}<br>
+  files: ${s.filesAnalyzed}/${s.filesDiscovered} analyzed (build ${report.scanCoverage?.buildFiles ?? 0} · large-lite ${report.scanCoverage?.largeFiles ?? 0} · binary ${report.scanCoverage?.binaryFiles ?? 0} · hard-skipped ${report.scanCoverage?.hardSkippedFiles ?? 0})<br>
+  findings: ${s.findingsTotal} total · returned ${s.findingsReturned}${s.findingsTruncated ? ' · <b>truncated</b>' : ''}${s.scoreBasedOnAllFindings ? ' · score based on ALL findings' : ''}<br>
   severity: critical ${s.bySeverity.critical} · high ${s.bySeverity.high} · medium ${s.bySeverity.medium} · low ${s.bySeverity.low} · info ${s.bySeverity.info}<br>
+  context: source ${s.byContext?.source ?? 0} · test ${s.byContext?.test ?? 0} (test 命中降一级计分,除非被运行入口可达)<br>
   ${report.manifest?.name ? `manifest: ${escapeHtml(report.manifest.name)}@${report.manifest.version} · isBundle=${report.manifest.isBundle}<br>` : ''}
   scanned at: ${escapeHtml(report.scannedAt)}
 </p>
 ${report.profile?.plugins?.length ? `<h2>Plugins(${report.profile.plugins.length})</h2>
-<table><tr><th>name</th><th>version</th><th>type</th><th>deps</th><th>findings</th></tr>${pluginsRows}</table>` : ''}
+<table><tr><th>name</th><th>version</th><th>role</th><th>parent</th><th>deps</th><th>findings</th></tr>${pluginsRows}</table>` : ''}
+${supplyChain && Object.keys(supplyChain).length ? `<h2>Supply Chain</h2>
+<p class="meta">${escapeHtml(JSON.stringify(supplyChain, null, 2))}</p>` : ''}
+${chainRows ? `<h2>Attack Chains</h2>
+<table><tr><th>id</th><th>name</th><th>severity</th><th>flow</th></tr>${chainRows}</table>` : ''}
 <h2>Findings (${report.findings.length})</h2>
 <table>
 <tr><th>ID</th><th>severity</th><th>conf</th><th>message</th><th>location</th><th>snippet</th><th>recommendation</th></tr>
 ${rows || '<tr><td colspan="7">当前启用规则未发现问题;这不等价于插件已被证明安全。</td></tr>'}
 </table>
-<p class="meta">启发式静态扫描 ≠ 安全保证。本报告由 dsh-sentinel ${escapeHtml(VERSION)} 生成。</p>
+${ignoredRows ? `<h2>Ignored (${report.ignored.length} patterns)</h2>
+<table><tr><th>pattern</th><th>files skipped</th></tr>${ignoredRows}</table>` : ''}
+${hardRows ? `<h2>Hard-skipped files (${report.hardSkipped.length}) — 超过硬上限,仅记录 metadata,扫描不完整</h2>
+<table><tr><th>path</th><th>size</th><th>sha256</th><th>ext</th><th>type</th></tr>${hardRows}</table>` : ''}
+<p class="meta">启发式静态扫描 ≠ 安全保证。本报告由 dsh-sentinel ${escapeHtml(VERSION)} 生成;SARIF/HTML 只是结果展示,不是检测引擎。</p>
 </body>
 </html>`
 }

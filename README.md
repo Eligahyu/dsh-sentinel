@@ -4,12 +4,12 @@
 
 **给 DeepSeek Harness 插件拍 X 光 · Plugin security & health scanner for DSH**
 
-一个零依赖、只读的 DSH 插件安全体检中心:静态启发式扫描代码执行、凭据窃取、数据外传、混淆、安装脚本与 bundle 清单合规,输出 **0–100 风险分 + 裁决**,并给出每一条命中的修复建议。
+一个只读的 DSH 插件供应链 + Agent Tool 静态安全审计器:静态启发式扫描代码执行、凭据窃取、数据外传、混淆、安装脚本、原生二进制、供应链风险与 bundle 清单合规,输出 **0–100 风险分 + 裁决**,并给出每一条命中的修复建议。
 
-既可以装进 DeepSeek Harness 当 **Agent 工具**(`sentinel_scan` / `sentinel_scan_profile`),也可以作为 **独立 CLI**(`npx dsh-sentinel`)在 CI 里使用。
+既可以装进 DeepSeek Harness 当 **Agent 工具**(`sentinel_scan` / `sentinel_scan_profile` / `sentinel_audit_package`),也可以作为 **独立 CLI**(`npx dsh-sentinel`)在 CI 里使用,并输出 **SARIF 2.1.0** 对接 GitHub Code Scanning。
 
 ```
-Node ≥ 18.17 · 零运行时依赖 · 不执行被扫描代码 · MIT
+Node ≥ 18.17 · 只读静态分析 · 绝不执行被扫描代码 · 安装前隔离审计 · MIT
 ```
 
 </div>
@@ -29,20 +29,31 @@ DeepSeek Harness 插件生态在爆发:截至 2026-08,仅 [awesome-dsh-plugin](h
 
 ---
 
+## 必须明确的四件事
+
+1. **SARIF 是报告交换格式,不是检测引擎**——真正检测能力来自 engine;
+2. **GitHub Action 是自动化执行层,不是新算法**——它只是运行 CLI 并上传结果;
+3. **audit-install 不执行 npm install**——只下载 tarball、隔离解包、静态扫描、删除;
+4. **scan verdict 不是恶意判定**——只有 `safe/review/risky/dangerous` 与
+   `ALLOW/REVIEW/BLOCK-RECOMMENDED` 建议,决策权永远留给用户。
+
 ## 功能
 
 | 能力 | 说明 |
 | --- | --- |
-| 🔍 规则引擎 | 30+ 条启发式规则,12 大类别(含 agent/taint/supplychain,见 [规则目录](docs/rules.md)) |
-| 🧠 语义引擎 | defineTool `execute(args)` 污点分析:`args.* → shell/文件/网络`(SEN-AGENT 系列),识别别名与跨变量传播 |
-| 🎯 双重形态 | DSH 工具插件(`sentinel_scan` / `sentinel_scan_profile`)+ 独立 CLI |
-| 📦 清单体检 | `dsh.bundle` / `cordis.patch.yml` / 入口契约(name+apply 必须同时存在)/ **路径 containment**(逃逸即 SEN-MAN-009) |
-| 🧹 全量审计 | `sentinel_scan_profile` 以 **package mode** 扫描 profile 第三方插件(含 dist/build/lib 构建产物,内置包与扫描器自身自动排除) |
-| 📊 量化裁决 | 0–100 风险分 + 四级裁决;**扫描完整性如实上报**(scanComplete / filesAnalyzed / findingsTruncated),不完整扫描绝不显示 clean |
+| 🔍 规则引擎 | 51 条启发式规则,14 大类别(含 agent/taint/supplychain/binary/persistence,见 [规则目录](docs/rules.md)) |
+| 🧠 语义引擎 | defineTool `execute(args)` 污点分析:`args.* → shell/文件/网络`(SEN-AGENT 系列),别名/跨变量/跨函数传播/计算属性/optional chaining;env 凭据 → 网络、文件 → 网络、解码 → 执行(SEN-TAINT 系列,confidence high) |
+| 🎯 双重形态 | DSH 工具插件(`sentinel_scan` / `sentinel_scan_profile` / `sentinel_audit_package`)+ 独立 CLI |
+| 📦 清单体检 | `dsh.bundle` / `cordis.patch.yml` / 入口契约(name+apply 必须同时存在)/ **路径 containment**(词法 + realpath + symlink 防护,逃逸即 SEN-MAN-009) |
+| 🧹 全量审计 | `sentinel_scan_profile` 以 **package mode** 扫描 profile 第三方插件;插件发现基于 direct deps / dsh.profile manifest / cordis patch / bundle 声明,传递依赖只做 metadata 审计(不产生 SEN-MAN-002 误报) |
+| 📊 量化裁决 | 0–100 风险分 + 四级裁决;**评分基于全部有效命中**(scoreBasedOnAllFindings),critical/high 即使出现在 maxFindings 截断之后也不丢失;**扫描完整性如实上报**(scanComplete / hardSkippedFiles / filesSkipped),不完整扫描绝不显示 clean |
 | 📐 三种扫描模式 | `source`(默认,跳过构建产物)/ `package`(必扫 dist/build)/ `profile` |
-| 🔒 只读安全 | 不执行被扫描代码、不跟随符号链接、manifest 路径防逃逸、大文件走 lite 分析不跳过 |
-| 🕶️ 隐私保护 | 报告中的 **secret 一律脱敏**(只保留指纹,绝不二次泄露) |
-| 🧪 自带验证 | 41 项自动化测试(positive/negative/evasion)+ 多套 fixture |
+| 📦 安装前审计 | `audit-install <pkg>`:tarball → quarantine → **安全解包**(防 traversal/symlink/tar bomb)→ 静态扫描 → 删除;sha512 integrity 校验;ALLOW/REVIEW/BLOCK-RECOMMENDED |
+| 🧬 原生二进制 | .wasm/.exe/.dll/.so/.node 等 metadata 审计:magic / size / sha256 / entropy / printable strings(SEN-BIN-001/002/003、SEN-WASM-001) |
+| 🔒 只读安全 | 不执行被扫描代码、不跟随符号链接、manifest 路径防逃逸、大文件走 lite 分析不跳过、超过 20MB 记录 metadata 并标记不完整 |
+| 🕶️ 隐私保护 | 报告中的 **secret 一律脱敏**(永远开启,只保留指纹);`--redact-paths` 匿名化绝对路径;所有 ignore/skip 全部进入报告,绝不静默 |
+| 🧪 自带验证 | 94 项自动化测试(positive/negative/evasion)+ 三级 benchmark(rule / finding±2 行 / flow source→sink) |
+| 🚀 CI 集成 | `--format sarif`(2.1.0,相对路径 + 稳定指纹)、`--fail-on`、`--fail-on-incomplete`(exit 3)、`--strict-exit-codes`、自包含 [GitHub Action](.github/actions/dsh-sentinel/) |
 
 ## 快速开始
 
@@ -55,7 +66,7 @@ dsh plugin --profile web add ./dsh-sentinel
 # 或从 GitHub 安装
 dsh plugin --profile web add github:Eligahyu/dsh-sentinel
 
-# npm 发布后(推荐,无需构建授权;npm 包名 deepseek-harness-sentinel,
+# npm 发布后(推荐;npm 包名 deepseek-harness-sentinel,
 # 因为 "dsh-sentinel" 在 npm 上已被占用):
 dsh plugin --profile web add deepseek-harness-sentinel
 
@@ -66,31 +77,41 @@ dsh --profile web
 
 > "用 sentinel_scan 检查一下 `~/Downloads/some-plugin` 这个目录"
 > "用 sentinel_scan_profile 审计一下我 web profile 里装的所有插件"
-
-模型会调用工具并返回:
-
-```
-🚨 DANGEROUS (risk score 100/100)
-scanned 3 files · 20 findings: critical 5 · high 9 · medium 4 · low 2 · info 0
-manifest: evil-plugin@0.1.0 · isBundle=true · patch=./cordis.patch.yml
-Top findings:
-  [critical] SEN-EXFIL-001 plugin/index.js:22 — 可疑数据外传端点(webhook / pastebin / 隧道 / 监听服务)
-  [critical] SEN-CRED-001 plugin/index.js:15 — 读取凭据文件(SSH 私钥 / AWS / npmrc / kubeconfig 等)
-  ...
-```
+> "用 sentinel_audit_package 在安装前审计 `some-plugin@1.2.3`"
 
 ### 方式二:独立 CLI(不装 DSH 也能用)
 
 ```sh
-# 不安装、直接跑(零依赖)
-npx dsh-sentinel <插件目录>            # 或 node bin/sentinel.mjs <目录>
+# 不安装、直接跑
+node bin/sentinel.mjs <插件目录>            # 或 npx dsh-sentinel <目录>
 
-# CI 集成:exit 0 = safe/review,exit 1 = risky/dangerous
-dsh-sentinel ./some-plugin --json --out report.json
-dsh-sentinel --profile web            # 审计整个 profile 的第三方插件(package mode)
-dsh-sentinel ./repo --mode package    # 扫描模式:source(默认)/package/profile
-dsh-sentinel --rules                  # 打印规则目录
+# 安装前审计(隔离、不执行任何脚本)
+node bin/sentinel.mjs audit-install some-plugin@1.2.3
+
+# CI 集成:exit 0 = safe/review,exit 1 = risky/dangerous / fail-on 超阈值
+node bin/sentinel.mjs ./some-plugin --json --out report.json
+node bin/sentinel.mjs ./repo --mode package --format sarif --out sentinel.sarif
+node bin/sentinel.mjs ./repo --fail-on high --fail-on-incomplete
+node bin/sentinel.mjs --profile web            # 审计整个 profile 的第三方插件
+node bin/sentinel.mjs --rules                  # 打印规则目录
 ```
+
+### GitHub Action
+
+```yaml
+- uses: Eligahyu/dsh-sentinel@v1
+  with:
+    path: .
+    mode: source
+    fail-on: high
+- name: Upload SARIF
+  if: always()
+  uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: sentinel.sarif
+```
+
+详见 [docs/integration-github-action.md](docs/integration-github-action.md)。
 
 ### 示例输出
 
@@ -99,43 +120,73 @@ dsh-sentinel --rules                  # 打印规则目录
 ─────────────────────────────────────────────
 target        packages/bundle/web-app
 manifest      @deepseek-ai/dsh-web-app@0.1.0-rc.5 · isBundle=true · patch=./cordis.patch.yml
-files         28 scanned (0 binary skipped)
-findings      0 total · CRITICAL 0 · HIGH 0 · MEDIUM 0 · low 0 · info 0
+files         28/28 analyzed (0 build · 0 large-lite · 0 binary · 0 hard-skipped)
+findings      0 total(返回 0) · CRITICAL 0 · HIGH 0 · MEDIUM 0 · low 0 · info 0
+context       source 0 · test 0 (test 文件命中降一级计分,除非被运行入口可达)
+scoring       score 基于全部 0 条有效命中(scoreBasedOnAllFindings)
 scan time     18 ms
+
+当前启用规则未发现问题;这不等价于插件已被证明安全。
+No findings detected by enabled rules; this does not prove the plugin is safe.
 ```
 
-上面的示例是对 **DeepSeek Harness 官方 `dsh-web-app` bundle 的真实扫描结果**;对恶意 fixture 的完整报告见 [docs/example-report.json](docs/example-report.json)。
+对恶意 fixture 的完整报告见 [docs/example-report.json](docs/example-report.json)。
 
 ## 评分与裁决
 
 | 严重度 | 权重 | 示例 |
 | --- | --- | --- |
-| 🔴 critical | 50 | 远程代码下载执行、读取 SSH 私钥、外传端点、`rm -rf $HOME`、安装脚本含网络下载 |
-| 🟠 high | 20 | `eval`、硬编码密钥、env 凭据读取、入口契约缺失 |
-| 🟡 medium | 8 | shell 执行、网络调用、写入工作区外、安装生命周期脚本(需人工确认)、patch 解析问题 |
+| 🔴 critical | 50 | 远程代码下载执行、读取 SSH 私钥、外传端点、`rm -rf $HOME`、安装脚本含网络下载、tar 路径逃逸 |
+| 🟠 high | 20 | `eval`、硬编码密钥、env 凭据读取、入口契约缺失、二进制内可疑字符串 |
+| 🟡 medium | 8 | shell 执行、网络调用、安装生命周期脚本(需人工确认)、高熵二进制、持久化机制 |
 | 🟢 low | 3 | 编码载荷混用、硬编码公网 IP、缺 license/description |
-| ⚪ info | 0 | 统计信息 |
+| ⚪ info | 0 | 原生二进制存在、WASM 模块 |
 
 总分封顶 100:**0–19 ✅ safe · 20–49 👀 review · 50–79 ⚠️ risky · 80–100 🚨 dangerous**——单条 critical(50 分)即达 risky,两条即 dangerous。
 
-> 测试上下文:位于 `test/`、`tests/`、`__tests__/` 等目录或 `*.spec.*`、`*.test.*`、`*.e2e.*` 文件中的命中会打上 `(test)` 标记并**降一级计分**(测试 fixture 通常是故意构造的恶意字符串/二进制数据),但仍完整列出、不隐藏。
+> **评分与展示分离**:分数基于**全部有效命中**(即使报告只展示 maxFindings 条),
+> critical/high 命中即使出现在截断之后也不会丢失计分——攻击者无法靠"淹没式低危命中"稀释风险分。
 >
-> 降噪设计:纯注释行不触发执行类规则(避免 JSDoc 里提到 `spawn()` 被误报);同一规则在同一文件的命中最多记 10 条(能力证明即可,避免刷屏);`chmod 0o600/0o700` 等严格权限是良好实践,只对宽松权限(777/666)告警;`prepare: npm run build` 这类 DSH 官方推荐的构建脚本按 medium 复核项处理。
+> **minified/bundle 不自动降级**:压缩产物只作为 evidence(`bundleFile` 标记),
+> 绝不改变 severity;置信度由检测方式决定(regex-only → medium,AST/taint → high)。
+>
+> 测试上下文:位于 `test/`、`tests/`、`__tests__/` 等目录的命中打 `(test)` 标记并**降一级计分**;
+> 但被 `main/exports/bin/patch` 运行入口可达的 test 文件**不降权**(防止攻击者把恶意代码藏在"测试文件"里)。
+>
+> 降噪设计:纯注释行不触发执行类规则;同一规则在同一文件最多记 10 条(计数不丢);`chmod 0o600/0o700` 等严格权限不告警;`prepare: npm run build` 按 medium 复核项处理。
 
-完整规则目录(30+ 条,含检测模式说明)见 [docs/rules.md](docs/rules.md)。
+完整规则目录(51 条,含检测模式说明)见 [docs/rules.md](docs/rules.md)。
 
 ## 工作方式
 
 ```
-插件仓库/目录 ──► collectFiles(跳过 .git/node_modules/二进制/符号链接)
-              ──► 逐文件跑 30+ 条启发式规则(行级 + 全文级正则)
+插件仓库/目录 ──► collectFiles(模式感知跳过 / ignore glob / 大文件 / 二进制 / hardMax 分类)
+              ──► 逐文件:51 条启发式规则(行级 + 全文级正则)+ AST 污点深扫
+              ──► 可执行二进制 metadata 审计(magic/entropy/strings)
               ──► inspectBundle:package.json + cordis.patch.yml 清单合规
-              ──► 加权计分 → 裁决 → 结构化 JSON 报告
+              ──► 全量统计 → 加权计分(基于全部命中)→ 裁决 → 结构化 JSON / SARIF / HTML
 ```
 
 - 扫描器**只读**:不执行被扫描代码,因此可以放心扫描任何"可疑"插件;
 - 报告是**结构化 JSON**,模型可以直接消费,也可以落盘进 CI;
 - 规则全部集中在 [engine/rules.js](engine/rules.js),加规则只需加一个对象。
+
+架构与不变式详见 [docs/architecture.md](docs/architecture.md)。
+
+## 安装前审计(不执行任何脚本)
+
+```sh
+node bin/sentinel.mjs audit-install some-plugin@1.2.3
+# 或
+node bin/sentinel.mjs npm:some-plugin@1.2.3
+```
+
+流程:`npm metadata → tarball → quarantine 临时目录 → 安全解包(防 ../、绝对路径、
+盘符、symlink/hardlink、tar bomb)→ 静态扫描 → 删除 quarantine`。
+**绝不执行** `npm install / preinstall / install / postinstall / prepare`。
+输出 `ALLOW / REVIEW / BLOCK-RECOMMENDED` 建议与 sha256/integrity/依赖数/安装脚本清单。
+
+与 DSH `dsh plugin add` 的前置审计集成设计见 [docs/integration-dsh-preinstall.md](docs/integration-dsh-preinstall.md)。
 
 ## 狗粮:扫描器扫描自己
 
@@ -145,46 +196,43 @@ node bin/sentinel.mjs engine
 
 会命中 `SEN-FS-001`/`SEN-EXEC-003` 等——因为规则库文件本身含有 `rm -rf`、`eval(` 这些**规则字面量**。这是模式扫描的固有行为(自指误报),也是项目诚实性的体现:规则作者同样需要人工复核。
 
-## 真实世界验证(官方语料)
+## 基准(三级 benchmark)
 
-用 DeepSeek Harness 官方仓库的 15 个包 + 示例组合做过一轮批量扫描,验证规则不失控:
+```sh
+npm run benchmark
+```
 
-| 语料 | 结果 |
-| --- | --- |
-| 官方 bundle(`base`/`headless`/`web-app`) | ✅ safe · 0 分 |
-| 纯库包(`tool-todo`/`tool-bash`/`hooks` 等) | 👀 review · 仅"非 bundle"提示(正确) |
-| 能力型工具包(`tool-fs-search`/`tool-web`/`llm-deepseek`) | 👀 review~risky · 命中均为正当"需复核"项(spawn ripgrep / fetch / 读 API key env) |
-| 测试文件(`tests/*.e2e.ts` 等) | 全部正确打上 `(test)` 标记,不再扭曲评分 |
+rule-level(期望规则 ID 集合)+ finding-level(期望 `{id, line}`,±2 行容忍)
++ flow-level(期望 `{id, source, sink}` 链),当前 16 项带标注语料:
 
-这轮狗粮还让扫描器自身修掉 3 个缺陷:**patch 指向包根时未解析 `main` 字段**、**入口契约不认 `export default { name, apply }` 对象**、**测试文件命中按原严重度计分导致误判**(现降一级计分)。
+```text
+rule-level   precision 0.962 · recall 1.000 · F1 0.981
+finding-level precision 0.941 · recall 1.000 · F1 0.970
+flow-level   precision 1.000 · recall 1.000 · F1 1.000
+```
+
+目标门槛:precision ≥ 0.90、recall ≥ 0.85;Harness critical 规则 recall ≥ 0.95。
 
 ## Roadmap
 
-- [ ] Web UI 报告可视化(HTML 报告 + 风险热力表)
-- [ ] GitHub Action:`dsh-sentinel-action` 自动审计 PR 里的插件改动
-- [ ] `dsh plugin add` 前置钩子:安装前自动扫描,`risky` 以上默认拦截
-- [ ] 规则扩展:YAML/JSON 配置混淆、加密载荷检测、供应链指纹(已知恶意仓库 hash)
-- [ ] 风险徽章服务:`![risk](https://api.dsh-sentinel.dev/badge/<repo>)`
+- [x] v0.2:扫描完整性 / 三种模式 / 路径 containment / secret 脱敏
+- [x] v0.3:AST/taint、Harness 专属规则、SARIF/fingerprint/baseline、安装前审计、benchmark
+- [x] v0.3.1(本轮):评分-展示解耦、bundle 不降级、binary 审计、safe tar、GitHub Action、DSH 前置审计接口
+- [ ] v0.4:lockfile 依赖图深化、跨文件 taint、reachability 图
+- [ ] v0.5:GitHub Action 独立仓库发布、DSH 官方 hook 对接(如官方提供)
+- [ ] v1.0:稳定语义引擎、公开基准、文档化限制
 
 详见 [docs/roadmap.md](docs/roadmap.md)。
 
 ## 开发
 
 ```sh
-npm test            # 41 项测试(引擎 + CLI + 插件加载冒烟 + 专业版功能)
-npm run docs:rules  # 从规则目录重新生成 docs/rules.md
+npm test            # 94 项测试(引擎 + CLI + 插件加载 + 供应链 + v2 正确性)
+npm run benchmark   # 三级 benchmark(rule/finding/flow)
+npm run docs:rules  # 从规则目录重新生成 docs/rules.md(权重动态取自 SEVERITY_WEIGHT)
 npm run demo        # 生成 docs/example-report.json
 npm run scan:self   # 扫描器扫自己(狗粮)
 ```
-
-## 安装链路实测
-
-`deepseek-harness-sentinel@0.1.0`(2026-08-18)在真实环境验证过完整链路:
-`dsh plugin --profile <p> add deepseek-harness-sentinel`(npm 安装,1.3s)→
-`--dump-config` 注入 `# == deepseek-harness-sentinel` bundle 层 →
-loader 解析 `deepseek-harness-sentinel/plugin`(exports 映射)→
-peer 依赖 `@deepseek-ai/dsh-tools` 经 `$DSH_HOME/profiles/node_modules` 扁平回退解析 →
-`apply()` 成功注册 `sentinel_scan` / `sentinel_scan_profile`。
 
 ## 收录与传播
 
@@ -202,21 +250,25 @@ peer 依赖 `@deepseek-ai/dsh-tools` 经 `$DSH_HOME/profiles/node_modules` 扁�
 
 ## English Summary
 
-**dsh-sentinel** is a dependency-free, read-only security & health scanner for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH) plugins. The DSH ecosystem has ~4,800 plugin repos but almost no tooling to audit them — plugins run arbitrary code with your full permissions, so supply-chain hygiene matters.
+**dsh-sentinel** is a read-only security & supply-chain scanner for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH) plugins — heuristic static audit plus an AST taint engine for Harness Agent Tools, pre-install tarball quarantine audit (never executes `npm install` or lifecycle scripts), binary metadata audit, SARIF 2.1.0 output and a self-contained GitHub Action.
 
-- **Two forms**: a DSH tool plugin (`sentinel_scan`, `sentinel_scan_profile`) and a standalone CLI (`npx dsh-sentinel`) with CI-friendly exit codes.
-- **Heuristic engine**: 30+ rules across execution, credentials, exfiltration, obfuscation, install scripts, filesystem, network, manifest compliance and hygiene → weighted 0–100 risk score with `safe / review / risky / dangerous` verdict.
-- **Manifest checks**: validates `dsh.bundle`, `cordis.patch.yml` rows and the plugin entry contract (`name`/`apply` exports) against the real loader semantics.
-- **Profile audit**: scans every third-party plugin installed in a profile (`$DSH_HOME/profiles/<name>/node_modules`), skipping trusted `@deepseek-ai/*` built-ins and tagging findings per package.
-- **Safe by design**: never executes scanned code, skips symlinks/binaries, zero runtime dependencies, Node ≥ 18.17.
+- **Two forms**: a DSH tool plugin (`sentinel_scan`, `sentinel_scan_profile`, `sentinel_audit_package`) and a standalone CLI with CI-friendly exit codes (0/1/2/3).
+- **Heuristic engine**: 51 rules across execution, credentials, exfiltration, obfuscation, install scripts, filesystem, network, manifest, agent, taint, supply-chain, binary and persistence → weighted 0–100 risk score with `safe / review / risky / dangerous` verdict.
+- **Scoring is decoupled from display**: score is computed from ALL findings (`scoreBasedOnAllFindings`); the report shows at most `maxFindings` entries, but critical/high findings are never dropped by the cap (priority-bounded buffer).
+- **Minified/bundle content is evidence, not a severity downgrade**: `bundleFile` tags only; confidence comes from the detection method (regex → medium, AST/taint → high).
+- **Pre-install audit**: tarball → quarantine → safe extraction (blocks `../`, absolute paths, drive letters, symlink/hardlink entries and tar bombs) → static scan → cleanup; sha512 integrity verification; `ALLOW / REVIEW / BLOCK-RECOMMENDED`.
+- **Profile audit**: discovers real DSH plugins via direct deps / profile manifest / cordis patch / bundle declarations; transitive dependencies get metadata-only audit (no `SEN-MAN-002` false positives).
+- **Safe by design**: never executes scanned code, skips symlinks, path containment (lexical + realpath + symlink), secrets always redacted, all skips visible in the report.
 
 ```sh
 # standalone
-npx dsh-sentinel <plugin-dir> [--json] [--out report.json]
+npx dsh-sentinel <plugin-dir> [--json] [--out report.json] [--format sarif]
+# pre-install audit
+npx dsh-sentinel audit-install <pkg>[@ver]
 # as a DSH plugin
 dsh plugin --profile web add ./dsh-sentinel
 ```
 
-> Disclaimer: heuristic static analysis is not a security guarantee. Findings mean "review this", not "this is malicious".
+> Disclaimer: heuristic static analysis is not a security guarantee. Findings mean "review this", not "this is malicious". SARIF/GitHub Action/HTML are result standardization and automation layers — the detection capability lives in the engine.
 
-[Rule catalog](docs/rules.md) · [Example report](docs/example-report.json) · MIT License
+[Rule catalog](docs/rules.md) · [Architecture](docs/architecture.md) · [GitHub Action](docs/integration-github-action.md) · [Example report](docs/example-report.json) · MIT License

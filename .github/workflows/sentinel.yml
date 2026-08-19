@@ -1,0 +1,35 @@
+# 示例:PR / push 时自动扫描并上传 SARIF 到 GitHub Code Scanning。
+#
+# 注意:
+#   - SARIF 是报告交换格式,不是检测引擎;Action 只自动化运行,不增强检测能力
+#   - upload-sarif 需要 permissions.security-events: write
+#   - Action 内部失败(exit != 0)时 job 失败;上传步骤用 if: always() 保证仍执行
+name: DSH Sentinel
+
+on:
+  pull_request:
+  push:
+    branches: [master, main]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  sentinel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: Eligahyu/dsh-sentinel@v1
+        with:
+          path: .
+          mode: source
+          fail-on: high
+          fail-on-incomplete: 'false'
+
+      - name: Upload SARIF to Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: sentinel.sarif

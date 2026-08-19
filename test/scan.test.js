@@ -29,7 +29,8 @@ test('rule catalog is well-formed', () => {
     assert.ok(
       rule.linePatterns?.length > 0 || rule.contentPatterns?.length > 0
         || rule.category === 'manifest' || rule.category === 'hygiene'
-        || rule.category === 'agent' || rule.category === 'taint',
+        || rule.category === 'agent' || rule.category === 'taint'
+        || rule.category === 'binary' || rule.category === 'supplychain' || rule.category === 'persistence',
       `${rule.id} has no detection patterns`,
     )
     assert.ok(SEVERITY_WEIGHT[rule.severity] >= 0, `${rule.id} weight`)
@@ -400,8 +401,8 @@ test('scanProfile audits only third-party plugins and tags findings', async () =
 
     const report = await scanProfile('web', { env: { DSH_HOME: tmp } })
     assert.deepEqual(report.profile.pluginsScanned, ['third-party-evil'])
-    assert.ok(report.profile.pluginsSkipped.some((s) => s.includes('@deepseek-ai')))
-    assert.ok(report.profile.pluginsSkipped.some((s) => s.includes('deepseek-harness-sentinel') && s.includes('self')), 'self must be skipped')
+    assert.ok(report.profile.pluginsSkipped.some((s) => String(s.name ?? s).includes('@deepseek-ai')))
+    assert.ok(report.profile.pluginsSkipped.some((s) => String(s.name ?? s).includes('deepseek-harness-sentinel') && s.reason === 'self'), 'self must be skipped')
     assert.ok(report.findings.some((f) => f.package === 'third-party-evil' && f.id === 'SEN-EXFIL-001'))
     assert.ok(report.findings.some((f) => f.package === 'third-party-evil' && f.id === 'SEN-EXFIL-002'))
   } finally {

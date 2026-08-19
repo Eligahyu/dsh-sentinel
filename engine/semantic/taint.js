@@ -9,13 +9,13 @@
  *   跨函数(同文件):本地函数参数传播,深度受限。
  */
 
-import { walk, calleeName, staticString, referencedIdentifiers, collectAliases } from './ast.js'
+import { walk, calleeName, staticStringOf, referencedIdentifiers, collectAliases } from './ast.js'
 
 const SINKS = [
   { names: ['exec', 'execSync', 'spawn', 'spawnSync', 'execFile', 'execFileSync', 'fork', 'eval', 'vm.runInNewContext', 'vm.runInThisContext', 'vm.runInContext'], type: 'shell', ruleId: 'SEN-AGENT-001', severity: 'critical' },
   { names: ['readFile', 'readFileSync', 'createReadStream', 'openSync'], type: 'file-read', ruleId: 'SEN-AGENT-002', severity: 'high' },
   { names: ['writeFile', 'writeFileSync', 'appendFile', 'appendFileSync', 'createWriteStream'], type: 'file-write', ruleId: 'SEN-AGENT-003', severity: 'high' },
-  { names: ['fetch', 'axios', 'http.request', 'https.request', 'WebSocket', 'sendBeacon'], type: 'network', ruleId: 'SEN-AGENT-004', severity: 'high' },
+  { names: ['fetch', 'axios', 'http.request', 'https.request', 'WebSocket', 'sendBeacon', 'net.connect', 'net.createConnection', 'dgram.createSocket'], type: 'network', ruleId: 'SEN-AGENT-004', severity: 'high' },
 ]
 const SINK_NAMES = new Set(SINKS.flatMap((s) => s.names))
 const DECODERS = new Set(['atob', 'decodeURIComponent', 'unescape', 'String.fromCharCode'])
@@ -63,22 +63,24 @@ function lineSnippet(content, node) {
   return { line, snippet: text.length > 240 ? text.slice(0, 239) + '…' : text }
 }
 
-/** 表达式是否为 env 凭据读取(process.env['API_KEY'] 等)。 */
+/** 表达式是否为 env 凭据读取(process.env['API_KEY'] / process.env['OPEN'+'AI_API_KEY'] 等)。 */
 function isSecretEnvRead(node) {
   if (node?.type !== 'MemberExpression') return false
   const obj = node.object
   if (calleeName(obj) !== 'process.env') return false
-  const key = staticString(node.property) ?? (node.property.type === 'Identifier' ? node.property.name : null)
+  const key = staticStringOf(node.property) ?? (node.property.type === 'Identifier' ? node.property.name : null)
   return key !== null && SECRET_ENV.test(key)
 }
 
-/** 表达式是否为解码调用。 */
+/** 表达式是否为解码调用:atob/decodeURIComponent/unescape/fromCharCode,或带 base64/hex 编码参数的 Buffer.from。 */
 function isDecodeCall(node) {
   if (node?.type !== 'CallExpression') return false
   const raw = calleeName(node.callee)
-  if (raw === 'Buffer.from' || raw === 'Buffer.from.alloc') return true
   if (DECODERS.has(raw)) return true
-  if (raw && /^fs\./.test(raw)) return false
+  if (raw === 'Buffer.from') {
+    const enc = staticStringOf(node.arguments[1])
+    return enc === 'base64' || enc === 'base64url' || enc === 'hex'
+  }
   return false
 }
 
@@ -113,6 +115,31 @@ function sourceTag(node, toolArgName) {
   return tag
 }
 
+/** 参数树中的源头表达式名(args.command / process.env.X / Buffer.from / readFileSync 等)。 */
+function sourceNameInArg(node, toolArgName) {
+  let found = null
+  walk(node, (n) => {
+    if (found) return
+    if (toolArgName && n.type === 'MemberExpression' && n.object.type === 'Identifier' && n.object.name === toolArgName) {
+      found = calleeName(n) ?? 'direct'
+    } else if (isSecretEnvRead(n)) {
+      found = calleeName(n) ?? 'direct'
+    } else if (isDecodeCall(n)) {
+      const raw = calleeName(n.callee)
+      found = raw ? raw.split('.').slice(0, 2).join('.') : 'direct'
+    } else if (isReadCall(n)) {
+      found = calleeName(n.callee) ?? 'direct'
+    }
+  })
+  if (!found) {
+    walk(node, (n) => {
+      if (found) return
+      if (n.type === 'Identifier' && /^(conversation|memory|history|chatHistory|session|context)$/.test(n.name)) found = n.name
+    })
+  }
+  return found ?? 'direct'
+}
+
 /**
  * 单个函数体的污点分析。
  * @param {object} ctx {content, aliases, file}
@@ -122,7 +149,7 @@ function sourceTag(node, toolArgName) {
 function taintFunction(ctx, fn, depth = 0) {
   const { content, aliases } = ctx
   const findings = []
-  const taints = new Map(ctx.paramTaints ?? new Map()) // 变量名 → 标签
+  const taints = new Map(ctx.paramTaints ?? new Map()) // 变量名 → {tag, source}
   const declarators = []
   const calls = []
 
@@ -143,14 +170,14 @@ function taintFunction(ctx, fn, depth = 0) {
       if (taints.has(name)) continue
       const direct = sourceTag(d.init, fn.toolArgName)
       if (direct) {
-        taints.set(name, direct)
+        taints.set(name, { tag: direct, source: sourceNameInArg(d.init, fn.toolArgName) })
         changed = true
         continue
       }
       const refs = referencedIdentifiers(d.init)
       for (const r of refs) {
         if (taints.has(r)) {
-          taints.set(name, taints.get(r))
+          taints.set(name, { tag: taints.get(r).tag, source: taints.get(r).source })
           changed = true
           break
         }
@@ -178,15 +205,23 @@ function taintFunction(ctx, fn, depth = 0) {
     const sink = SINKS.find((s) => s.names.includes(sinkName))
     if (!sink) continue
 
-    // 参数污点标签
+    // 参数污点标签 + 源头名
     let tag = null
     let sourceName = null
     for (const arg of call.arguments) {
       const t = sourceTag(arg, fn.toolArgName)
-      if (t) { tag = t; sourceName = arg.type === 'MemberExpression' ? calleeName(arg) : 'direct'; break }
+      if (t) {
+        tag = t
+        sourceName = sourceNameInArg(arg, fn.toolArgName)
+        break
+      }
       const refs = referencedIdentifiers(arg)
       for (const r of refs) {
-        if (taints.has(r)) { tag = taints.get(r); sourceName = r; break }
+        if (taints.has(r)) {
+          tag = taints.get(r).tag
+          sourceName = taints.get(r).source
+          break
+        }
       }
       if (tag) break
     }
@@ -218,10 +253,16 @@ function taintFunction(ctx, fn, depth = 0) {
         const arg = call.arguments[i]
         if (!arg) return
         const t = sourceTag(arg, fn.toolArgName)
-        if (t) paramTaints.set(p, t)
-        else {
-          const refs = referencedIdentifiers(arg)
-          for (const r of refs) if (taints.has(r)) paramTaints.set(p, taints.get(r))
+        if (t) {
+          paramTaints.set(p, { tag: t, source: sourceNameInArg(arg, fn.toolArgName) })
+          return
+        }
+        const refs = referencedIdentifiers(arg)
+        for (const r of refs) {
+          if (taints.has(r)) {
+            paramTaints.set(p, { tag: taints.get(r).tag, source: taints.get(r).source })
+            break
+          }
         }
       })
       if (paramTaints.size === 0) continue

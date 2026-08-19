@@ -45,7 +45,12 @@ function renderReport(_args, value) {
   }
   if (value.target.kind === 'profile') {
     lines.push(`profile: ${value.profile.name} · third-party plugins scanned: ${value.profile.pluginsScanned.length}` +
-      (value.profile.pluginsSkipped.length > 0 ? ` (skipped ${value.profile.pluginsSkipped.length} built-ins/others)` : ''))
+      (value.profile.pluginsSkipped.length > 0
+        ? ` (skipped ${value.profile.pluginsSkipped.length}: ${value.profile.pluginsSkipped.map((s) => `${typeof s === 'string' ? s : s.name}(${s.reason ?? 'policy'})`).slice(0, 6).join(', ')}${value.profile.pluginsSkipped.length > 6 ? '…' : ''})`
+        : ''))
+  }
+  if (value.audit) {
+    lines.push(`install audit: ${value.audit.verdict} — ${value.audit.package}@${value.audit.version} · integrity ${value.audit.integrityOk ? 'OK' : 'FAIL'} · sha256 ${value.audit.tarballSha256?.slice(0, 16)}…`)
   }
   const top = value.findings.filter((f) => f.severity === 'critical' || f.severity === 'high').slice(0, 12)
   if (top.length > 0) {
@@ -155,6 +160,5 @@ export function apply(ctx) {
       return { ...report, audit }
     },
   }))
-
   ctx.logger?.info(`[sentinel] dsh-sentinel ${VERSION} loaded — sentinel_scan / sentinel_scan_profile / sentinel_audit_package registered`)
 }
