@@ -167,11 +167,20 @@ node bin/sentinel.mjs engine
 ## 开发
 
 ```sh
-npm test            # 11 项测试(引擎 + CLI + 插件加载冒烟)
+npm test            # 23 项测试(引擎 + CLI + 插件加载冒烟)
 npm run docs:rules  # 从规则目录重新生成 docs/rules.md
 npm run demo        # 生成 docs/example-report.json
 npm run scan:self   # 扫描器扫自己(狗粮)
 ```
+
+## 安装链路实测
+
+`deepseek-harness-sentinel@0.1.0`(2026-08-18)在真实环境验证过完整链路:
+`dsh plugin --profile <p> add deepseek-harness-sentinel`(npm 安装,1.3s)→
+`--dump-config` 注入 `# == deepseek-harness-sentinel` bundle 层 →
+loader 解析 `deepseek-harness-sentinel/plugin`(exports 映射)→
+peer 依赖 `@deepseek-ai/dsh-tools` 经 `$DSH_HOME/profiles/node_modules` 扁平回退解析 →
+`apply()` 成功注册 `sentinel_scan` / `sentinel_scan_profile`。
 
 ## 收录与传播
 
