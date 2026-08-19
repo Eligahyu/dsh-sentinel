@@ -325,3 +325,67 @@ test('acquireNpmPackage:注册表不可达时明确报错(失败路径)', async 
     else process.env.SENTINEL_NPM_REGISTRY = oldRegistry
   }
 })
+
+// ---- P1-2: IPv6 / DNS SSRF ----
+
+test('normalizeHostname:去 IPv6 brackets', async () => {
+  const { normalizeHostname } = await import('../engine/semantic/harness.js')
+  assert.equal(normalizeHostname('[::1]'), '::1')
+  assert.equal(normalizeHostname('[fc00::1]'), 'fc00::1')
+  assert.equal(normalizeHostname('example.com'), 'example.com')
+  assert.equal(normalizeHostname(' [fe80::1] '), 'fe80::1')
+})
+
+test('SSRF 识别:IPv6 变体与 IPv4-mapped', async () => {
+  const { enrichHarnessFindings } = await import('../engine/semantic/harness.js')
+  const cases = [
+    ['http://[::1]/x', 'mapped/回环'],
+    ['http://[fc00::1]/x', 'ULA'],
+    ['http://[fe80::1]/x', 'link-local'],
+    ['http://::ffff:127.0.0.1/x', 'mapped 回环'],
+    ['http://[::ffff:169.254.169.254]/x', 'mapped 云元数据'],
+  ]
+  for (const [line, label] of cases) {
+    const findings = [{ ruleId: 'SEN-AGENT-004', severity: 'high', line: 1 }]
+    enrichHarnessFindings(findings, `fetch('${line}')\n`)
+    assert.equal(findings[0].ssrfTarget, true, `${label} 应标记 ssrfTarget:${line}`)
+  }
+})
+
+test('SSRF 云元数据 IPv4-mapped → critical', async () => {
+  const { enrichHarnessFindings } = await import('../engine/semantic/harness.js')
+  const findings = [{ ruleId: 'SEN-AGENT-004', severity: 'high', line: 1 }]
+  enrichHarnessFindings(findings, "fetch('http://[::ffff:169.254.169.254]/latest/meta-data/')\n")
+  assert.equal(findings[0].severity, 'critical')
+})
+
+test('isPrivateIp:IPv4/IPv6 私有集合判定', async () => {
+  const { isPrivateIp } = await import('../engine/supplychain/fetch.js')
+  for (const ip of ['127.0.0.1', '10.0.0.1', '172.16.0.1', '192.168.1.1', '169.254.169.254', '0.0.0.0', '::1', 'fc00::1', 'fd00::1', 'fe80::1', '::ffff:127.0.0.1', '2001:db8::1']) {
+    assert.equal(isPrivateIp(ip), true, `${ip} 应为私有`)
+  }
+  for (const ip of ['8.8.8.8', '1.1.1.1', '2606:4700:4700::1111']) {
+    assert.equal(isPrivateIp(ip), false, `${ip} 应为公网`)
+  }
+})
+
+test('assertPublicDns:strict 模式拒绝私有地址目标,无需网络', async () => {
+  const { assertPublicDns } = await import('../engine/supplychain/fetch.js')
+  await assert.rejects(() => assertPublicDns('http://127.0.0.1:8080/x', { strict: true }), /SSRF guard/)
+  await assert.rejects(() => assertPublicDns('http://[::1]/x', { strict: true }), /SSRF guard/)
+  await assert.rejects(() => assertPublicDns('http://[fc00::1]/x', { strict: true }), /SSRF guard/)
+  // 非严格模式零网络动作
+  const r = await assertPublicDns('http://127.0.0.1:8080/x')
+  assert.deepEqual(r, [])
+})
+
+test('downloadTarball:strictDns 拒绝私有地址(不发起下载)', async () => {
+  const { downloadTarball } = await import('../engine/package/tarball.js')
+  const before = new Set(sentinelLeftovers())
+  await assert.rejects(
+    () => downloadTarball('http://127.0.0.1:9/x.tgz', '', { strictDns: true }),
+    /SSRF guard/,
+  )
+  const after = sentinelLeftovers().filter((n) => !before.has(n))
+  assert.deepEqual(after, [], 'strictDns 拒绝后无残留')
+})

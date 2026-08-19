@@ -33,11 +33,16 @@ export const TARBALL_MAX_BYTES = 512 * 1024 * 1024
  * 下载 tarball 到临时文件并校验 integrity。
  * @param {string} tarballUrl
  * @param {string} integrity
- * @param {object} [opts] - {maxBytes}
+ * @param {object} [opts] - {maxBytes, strictDns}
  * @returns {Promise<{tarballPath: string, sha256: string, integrityOk: boolean, integrityReason?: string}>}
  */
 export async function downloadTarball(tarballUrl, integrity, opts = {}) {
   const maxBytes = opts.maxBytes ?? TARBALL_MAX_BYTES
+  // P1-2:严格 DNS 模式(默认关)在下载前解析 hostname 并拒绝私有地址。
+  if (opts.strictDns) {
+    const { assertPublicDns } = await import('../supplychain/fetch.js')
+    await assertPublicDns(tarballUrl, { strict: true })
+  }
   const tarballPath = join(tmpdir(), `sentinel-pkg-${Date.now()}-${Math.random().toString(36).slice(2)}.tgz`)
   // --max-time 覆盖 redirect+headers+body;--max-filesize 超限即中止;
   // 失败/超限/partial 一律 rmSync 清理(§9.4)。

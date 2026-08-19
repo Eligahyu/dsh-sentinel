@@ -19,10 +19,31 @@ const POISON_PHRASES = [
 ]
 
 const SSRF_TARGETS = [
-  /localhost|127\.0\.0\.1|0\.0\.0\.0|169\.254\.169\.254|::1/i,
+  // host 形态:localhost / IPv4 私有 / 云元数据
+  /localhost|127\.0\.0\.1|0\.0\.0\.0|169\.254\.169\.254/i,
+  // IPv6 回环与 IPv4-mapped 回环(含 [brackets] 形态)
+  /\[?::1\]?/i,
+  /\[?::ffff:127\./i,
+  // 云元数据 IPv4-mapped(::ffff:169.254.169.254)——critical 判定复用 169.254.169.254 子串
+  /\[?::ffff:169\.254\.169\.254\]?/i,
+  // IPv6 ULA fc00::/7(fc00–fdff)
+  /\[?(?:fc|fd)[0-9a-f]{2}::\]?/i,
+  // IPv6 link-local fe80::/10(fe80–febf)
+  /\[?fe[89ab][0-9a-f]::\]?/i,
+  // IPv4-mapped 私有段(::ffff:10.x / 192.168.x / 172.16-31.x)
+  /\[?::ffff:(?:10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.)\]?/i,
+  // 危险协议
   /file:\/\/|gopher:\/\/|ftp:\/\//i,
+  // 私有 IPv4 段
   /(?:10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.)\d{1,3}\.\d{1,3}/,
 ]
+
+/** 去 IPv6 brackets 并 trim。 */
+export function normalizeHostname(host) {
+  let h = String(host ?? '').trim()
+  if (h.startsWith('[') && h.endsWith(']')) h = h.slice(1, -1)
+  return h
+}
 
 /** 能力关键词:出现这些词的"工具"通常不应有敏感 sink。 */
 const BENIGN_KEYWORDS = /weather|greeting|hello|translate|quote|joke|fact|time|date|unit|convert|dictionary|calculator|poll/i
