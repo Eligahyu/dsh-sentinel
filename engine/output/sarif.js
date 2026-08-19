@@ -68,7 +68,7 @@ export function toSarif(report, opts = {}) {
         driver: {
           name: 'dsh-sentinel',
           version: VERSION,
-          informationUri: 'https://github.com/Eligahyu/dsh-sentinel',
+          informationUri: 'https://github.com/Eligahyu/dsh-sentinel-scanner',
           rules: [...rules.values()],
         },
       },

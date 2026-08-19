@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: Eligahyu/dsh-sentinel@v1
+      - uses: Eligahyu/dsh-sentinel-scanner@v1
         with:
           path: .
           mode: source      # source(默认)| package | profile

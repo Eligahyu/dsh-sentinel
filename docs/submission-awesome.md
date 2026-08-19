@@ -9,7 +9,7 @@
 
 ## 前置检查(全部已满足)
 
-- [x] 仓库公开:github.com/Eligahyu/dsh-sentinel
+- [x] 仓库公开:github.com/Eligahyu/dsh-sentinel-scanner
 - [x] `dsh-plugin` Topic(已通过 gh api 设置)
 - [x] GitHub 项目简介(已设置)
 - [x] 真实可安装的 DSH bundle(声明了 `dsh.bundle` + `cordis.patch.yml`)
@@ -25,9 +25,9 @@ cd /tmp/awesome-dsh-plugin
 git checkout -b showcase-dsh-sentinel
 
 # 2. 在 SHOWCASE.md 的「作者自荐」列表末尾追加一行(中文区):
-#    [dsh-sentinel](https://github.com/Eligahyu/dsh-sentinel) — DSH 插件安全体检与健康检查:静态扫描代码执行/凭据/外传/混淆/安装脚本/bundle 清单,输出 0-100 风险分与裁决,双形态(DSH 工具 + 独立 CLI),零依赖只读。
+#    [dsh-sentinel](https://github.com/Eligahyu/dsh-sentinel-scanner) — DSH 插件安全体检与健康检查:静态扫描代码执行/凭据/外传/混淆/安装脚本/bundle 清单,输出 0-100 风险分与裁决,双形态(DSH 工具 + 独立 CLI),零依赖只读。
 #    在「Author showcase」列表末尾追加一行(英文区):
-#    [dsh-sentinel](https://github.com/Eligahyu/dsh-sentinel) — Security & health scanner for DSH plugins: heuristic static audit (code execution, credentials, exfiltration, obfuscation, install scripts, bundle manifest) with a 0-100 risk score. DSH tool plugin + zero-dependency CLI.
+#    [dsh-sentinel](https://github.com/Eligahyu/dsh-sentinel-scanner) — Security & health scanner for DSH plugins: heuristic static audit (code execution, credentials, exfiltration, obfuscation, install scripts, bundle manifest) with a 0-100 risk score. DSH tool plugin + zero-dependency CLI.
 
 # 3. 同步两个 README 首页的自荐预览区为列表末尾最近 10 条
 #    (README.md 与 README_EN.md 的 showcase 预览块)

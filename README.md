@@ -64,7 +64,7 @@ DeepSeek Harness 插件生态在爆发:截至 2026-08,仅 [awesome-dsh-plugin](h
 dsh plugin --profile web add ./dsh-sentinel
 
 # 或从 GitHub 安装
-dsh plugin --profile web add github:Eligahyu/dsh-sentinel
+dsh plugin --profile web add github:Eligahyu/dsh-sentinel-scanner
 
 # npm 发布后(推荐;npm 包名 deepseek-harness-sentinel,
 # 因为 "dsh-sentinel" 在 npm 上已被占用):
@@ -99,7 +99,7 @@ node bin/sentinel.mjs --rules                  # 打印规则目录
 ### GitHub Action
 
 ```yaml
-- uses: Eligahyu/dsh-sentinel@v1
+- uses: Eligahyu/dsh-sentinel-scanner@v1
   with:
     path: .
     mode: source

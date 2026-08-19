@@ -45,7 +45,7 @@
 ## 🚀 发布 Checklist
 
 ### 1. GitHub 仓库 ✅
-- [x] 仓库已建并推送:github.com/Eligahyu/dsh-sentinel
+- [x] 仓库已建并推送:github.com/Eligahyu/dsh-sentinel-scanner
 - [x] Topics:dsh-plugin、deepseek-harness、security、scanner、supply-chain-security、static-analysis
 - [x] SECURITY.md 已补全(supported versions / reporting / scanner self-security / tar 解析 / 路径逃逸 / secret 泄露 / 响应承诺)
 

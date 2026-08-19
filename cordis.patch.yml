@@ -3,7 +3,7 @@
 # Install into a profile:
 #   dsh plugin --profile web add deepseek-harness-sentinel       # npm 包名
 #   dsh plugin --profile web add ./dsh-sentinel                  # 本地 checkout
-#   dsh plugin --profile web add github:Eligahyu/dsh-sentinel    # git
+#   dsh plugin --profile web add github:Eligahyu/dsh-sentinel-scanner  # git
 #
 # The plugin module resolves as `deepseek-harness-sentinel/plugin` from the
 # profile's node_modules (peer deps fall through to the launcher-maintained
