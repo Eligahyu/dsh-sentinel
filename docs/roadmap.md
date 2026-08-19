@@ -58,7 +58,8 @@
 ### 3. npm 发布
 - [x] 包名 `deepseek-harness-sentinel`;v0.1.0 已发布
 - [x] 全局安装 + CLI 冒烟测试通过
-- [ ] 发布 v0.3.1(本轮修复)
+- [x] 发布 v0.3.1(第二轮修复)
+- [ ] 发布 v0.4.0(发布加固,Node ≥22.18 基线)
 - [ ] 配置 Trusted Publishing(OIDC)
 
 ### 4. 中文社区传播

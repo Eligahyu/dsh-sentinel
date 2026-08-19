@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [20, 22, 24]
+        node: [22.18, 24]
     steps:
       - uses: actions/checkout@v4
 
@@ -23,6 +23,12 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
 
-      # 零第三方依赖,直接跑 Node 内置测试运行器,无需 npm install。
+      # 仅 acorn 一个运行时依赖;直接跑 Node 内置测试运行器。
+      - name: Install dependencies
+        run: npm ci
+
       - name: Run tests
-        run: node --test test/scan.test.js test/plugin-load.test.js
+        run: node --test test/scan.test.js test/plugin-load.test.js test/professional.test.js test/supplychain.test.js test/v2.test.js test/hardening.test.js
+
+      - name: Benchmark
+        run: node scripts/benchmark.mjs

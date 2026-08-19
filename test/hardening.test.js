@@ -2,7 +2,7 @@
 // Covers P0/P1 fixes from dsh-sentinel-v0.4-final-release-hardening.md.
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { mkdtempSync, writeFileSync, mkdirSync, readdirSync, existsSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, mkdirSync, readdirSync, existsSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
@@ -668,4 +668,16 @@ test('SARIF:稳定指纹在 dshFingerprint,不冒充 primaryLocationLineHash', a
   assert.equal(result.partialFingerprints, undefined, '不得冒充 primaryLocationLineHash')
   assert.match(result.properties.dshFingerprint, /^[0-9a-f]{64}$/)
   assert.equal(result.locations[0].physicalLocation.region.startColumn, 7)
+})
+
+// ---- P0-4: 版本一致性(§29) ----
+
+test('version consistency:package.json == package-lock == VERSION == 0.4.0', async () => {
+  const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+  const lock = JSON.parse(readFileSync(new URL('../package-lock.json', import.meta.url), 'utf8'))
+  const { VERSION } = await import('../engine/version.js')
+  assert.equal(pkg.version, '0.4.0')
+  assert.equal(lock.packages[''].version, pkg.version)
+  assert.equal(VERSION, pkg.version)
+  assert.ok(pkg.engines.node.startsWith('>='), 'engines 声明 Node 基线')
 })

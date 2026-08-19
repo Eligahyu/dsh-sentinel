@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.4.0 (2026-08) — Final Release Hardening
+
+按 `dsh-sentinel-v0.4-final-release-hardening.md` 完成发布前加固:正确性 / 完整性 / 资源安全 / 打包 / CI 集成,并形成可复现的最终测试证据(137 项测试全绿,benchmark rule F1 0.943 / finding 0.914 / flow 1.000)。
+
+### Added
+- 完整度:read/hash/analysis/traversal 失败显式化(`coverageSkips` + `scanComplete=false`,失败不计入 `filesAnalyzed`)
+- 资源限制:metadata 5MB / tarball 512MB 下载上限(`--max-filesize`),失败路径 partial 清理;`--noproxy` 直连
+- 下载层严格 DNS 校验(默认关,防 SSRF;DNS TOCTOU 限制已文档化)
+- IPv6 / IPv4-mapped / `[brackets]` SSRF 目标识别(`::1`、`fc00::/7`、`fe80::/10`、`::ffff:169.254.169.254`)
+- 凭据专属受信端点:secret 名匹配 + 官方端点才豁免(大厂 host 不再直接豁免)
+- 同一参数 multiple taints:一个 arg → 多个独立 flow;去重键含 source+sink
+- bare sink 绑定校验:`exec/spawn/readFile/writeFile` 必须绑定 import(`eval/Function/fetch` 免绑定)
+- report 保留 semantic evidence(`flowSteps`/`functionName`/`toolName`/`startColumn`/`endLine`/`endColumn`/`ssrfTarget`)
+- fingerprint 报告层闭环(`attachFingerprints`);SARIF `dshFingerprint` 取代 `primaryLocationLineHash`
+- FindingBuffer 优先级淘汰修正(critical 永不因 cap 丢失;同优先级保留先出现)
+
+### Fixed
+- maxFindings 反向淘汰(P0-1)
+- read/hash failure 虚假 complete(P0-2)
+- patch/main/bin/exports 逃逸读取(P0-3)
+- tarball/quarantine 全生命周期 cleanup(P0-6)
+- 下载 full-body 资源限制(P0-7)
+- registry 地址可覆盖(模块缓存不再固化)
+
+### Changed
+- Node 运行时基线 `>=22.18.0`(现代基线,CI matrix 22.18/24)
+- 版本统一 0.4.0(package.json / package-lock / version.js)
+- 文案:`zero-dependency` → `self-contained`(运行时依赖 acorn)
+
 ## 0.3.1 (2026-08) — 第二轮一次性修复(v2)
 
 按 `dsh-sentinel-professional-v2-full-fix.md` 完成 22 项必改,把底层正确性债务一次性清掉,

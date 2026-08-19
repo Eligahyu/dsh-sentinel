@@ -217,8 +217,9 @@ flow-level   precision 1.000 · recall 1.000 · F1 1.000
 
 - [x] v0.2:扫描完整性 / 三种模式 / 路径 containment / secret 脱敏
 - [x] v0.3:AST/taint、Harness 专属规则、SARIF/fingerprint/baseline、安装前审计、benchmark
-- [x] v0.3.1(本轮):评分-展示解耦、bundle 不降级、binary 审计、safe tar、GitHub Action、DSH 前置审计接口
-- [ ] v0.4:lockfile 依赖图深化、跨文件 taint、reachability 图
+- [x] v0.3.1(第二轮):评分-展示解耦、bundle 不降级、binary 审计、safe tar、GitHub Action、DSH 前置审计接口
+- [x] v0.4.0(本轮):发布加固——完整度失败显式化、资源上限、IPv6/DNS SSRF、凭据专属豁免、bare sink 绑定、multiple taints、semantic evidence、fingerprint 闭环、Node ≥22.18 基线
+- [ ] v0.5:lockfile 依赖图深化、跨文件 taint、reachability 图
 - [ ] v0.5:GitHub Action 独立仓库发布、DSH 官方 hook 对接(如官方提供)
 - [ ] v1.0:稳定语义引擎、公开基准、文档化限制
 
