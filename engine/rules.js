@@ -108,10 +108,12 @@ export const RULES = Object.freeze([
       { re: /(?<![.\w$])(?:exec|execSync|spawn|spawnSync)\s*\(/, needsImport: 'child_process' },
       { re: /\b(?:system|popen|shell_exec|os\.system|subprocess\.(?:run|Popen|call))\s*\(/ },
     ],
-    // 命令与参数均为静态常量时豁免(规则推荐语明示的安全形态):
-    //   spawn('git', ['status']) / exec('npm --version') / execFile('git', ['log'])
+    // 命令与参数均为静态常量且以参数数组形态调用时豁免(规则推荐语明示的安全形态):
+    //   spawn('git', ['status']) / execFile('git', ['log'])
+    // 单字符串常量(spawn('ls') / exec('npm --version'))仍标记——exec/spawn 默认走 shell,
+    // 常量命令也要逐处审查;仅"字符串命令 + 数组参数"视为参数化安全形态。
     excludes: [
-      /(?:exec|execSync|execFile|execFileSync|spawn|spawnSync)\s*\(\s*['"][^'"]*['"]\s*(?:,\s*\[[^\]]*\])?\s*\)/,
+      /(?:execFile|execFileSync|spawn|spawnSync)\s*\(\s*['"][^'"]*['"]\s*,\s*\[[^\]]*\]\s*\)/,
     ],
   },
   {
