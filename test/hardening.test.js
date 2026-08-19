@@ -764,3 +764,16 @@ test('gzip bomb:压缩包超限被拒绝(TAR_LIMITS 可注入)', async () => {
   )
   assert.ok(TAR_LIMITS.maxCompressedBytes > 0)
 })
+
+// ---- §30: Action consistency ----
+
+test('action consistency:action.yml 引用的可执行路径全部存在', async () => {
+  const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+  // 根 action 引用 ${{ github.action_path }}/bin/sentinel.mjs
+  assert.ok(existsSync(new URL('../action.yml', import.meta.url)), '根 action.yml 存在')
+  assert.ok(existsSync(new URL('../bin/sentinel.mjs', import.meta.url)), 'bin/sentinel.mjs 存在')
+  // vendored acorn(引擎回退加载路径)存在
+  assert.ok(existsSync(new URL('../.github/actions/dsh-sentinel/vendor/acorn.mjs', import.meta.url)), 'vendored acorn 存在')
+  // action 声明与 CLI 一致
+  assert.equal(pkg.bin['dsh-sentinel'], 'bin/sentinel.mjs')
+})
