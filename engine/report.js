@@ -143,7 +143,8 @@ export function buildReport(parts, maxFindings = 300) {
   const seen = new Set()
   const capped = [...(parts.findings ?? [])]
     .filter((f) => {
-      const key = `${f.ruleId}|${f.file}|${f.line ?? 1}|${f.package ?? ''}`
+      // §13.5:去重键必须含 source+sink——同一行多个独立 flow 不得折叠。
+      const key = `${f.ruleId}|${f.file}|${f.line ?? 1}|${f.source?.name ?? ''}|${f.sink?.callee ?? ''}|${f.package ?? ''}`
       if (seen.has(key)) return false
       seen.add(key)
       return true

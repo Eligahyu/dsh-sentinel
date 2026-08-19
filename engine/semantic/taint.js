@@ -10,6 +10,7 @@
  */
 
 import { walk, calleeName, staticStringOf, referencedIdentifiers, collectAliases } from './ast.js'
+import { normalizeHostname } from './harness.js'
 
 const SINKS = [
   { names: ['exec', 'execSync', 'spawn', 'spawnSync', 'execFile', 'execFileSync', 'fork', 'eval', 'vm.runInNewContext', 'vm.runInThisContext', 'vm.runInContext'], type: 'shell', ruleId: 'SEN-AGENT-001', severity: 'critical' },
@@ -22,8 +23,40 @@ const DECODERS = new Set(['atob', 'decodeURIComponent', 'unescape', 'String.from
 const READERS = new Set(['readFile', 'readFileSync', 'createReadStream', 'openSync'])
 const SECRET_ENV = /(?:API_KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|PRIVATE_KEY|AUTH)/i
 
-/** 受信端点:env → 网络 在这些域上属于正常 API 客户端行为,不做外传判定。 */
-const TRUSTED_HOSTS = /(?:api|platform)\.(?:deepseek\.com|openai\.com|anthropic\.com)|(?:api\.)?github\.com|googleapis\.com|azure\.com|aws\.com|api\.x\.com|twitter\.com/i
+/**
+ * 凭据专属受信端点(P1-1):只有"secret 名匹配该凭据 + 目标是该凭据的官方端点"
+ * 才豁免 secret 外传判定。"host 属于大厂"不再直接豁免——攻击者可以控制
+ * 任意 bucket / app / endpoint(如 evil-bucket.s3.amazonaws.com)。
+ */
+const CREDENTIAL_DESTINATIONS = [
+  { pattern: /^OPENAI_.*(?:KEY|TOKEN)$/i, hosts: ['api.openai.com'] },
+  { pattern: /^DEEPSEEK_.*(?:KEY|TOKEN)$/i, hosts: ['api.deepseek.com'] },
+  { pattern: /^ANTHROPIC_.*(?:KEY|TOKEN)$/i, hosts: ['api.anthropic.com'] },
+  { pattern: /^GITHUB_.*(?:TOKEN|KEY)$/i, hosts: ['api.github.com', 'github.com'] },
+]
+
+/** 从 env 源头名提取 secret 名:process.env.DEEPSEEK_API_KEY → 'DEEPSEEK_API_KEY'。 */
+export function secretNameFrom(sourceName) {
+  const m = /^process\.env\.([A-Za-z_$][\w$]*)/.exec(sourceName ?? '')
+  return m ? m[1] : null
+}
+
+/** host 是否属于已知大厂域名(仅辅助 evidence,绝不直接豁免)。 */
+export function isKnownProviderHost(host) {
+  return /(?:^|\.)(?:deepseek\.com|openai\.com|anthropic\.com|github\.com|googleapis\.com|azure\.(?:com|net)|aws\.com|amazonaws\.com)$/i.test(host)
+}
+
+/** 凭据名 + URL 是否是该凭据的官方目标(唯一允许的豁免条件)。 */
+export function isExpectedCredentialDestination(secretName, url) {
+  if (!secretName || !url) return false
+  let host
+  try {
+    host = normalizeHostname(new URL(url).hostname)
+  } catch {
+    return false
+  }
+  return CREDENTIAL_DESTINATIONS.some((d) => d.pattern.test(secretName) && d.hosts.includes(host))
+}
 
 const MESSAGES = {
   'SEN-AGENT-001': '模型可控输入进入 shell 执行(execute(args) → exec/spawn)',
@@ -113,6 +146,36 @@ function sourceTag(node, toolArgName) {
   walk(node, visit)
   visit(node)
   return tag
+}
+
+/**
+ * 表达式中的所有独立污点(P1-4 §13.2):同一参数可携带多个 source
+ * (如 `args.url + '?token=' + process.env.API_KEY` → args + env),
+ * 每个 source 独立成流,不再只取第一个。
+ * @returns {Array<{tag: string, source: string}>}
+ */
+export function expressionTaints(node, toolArgName) {
+  const out = []
+  const seen = new Set()
+  const push = (tag, source) => {
+    const k = `${tag}|${source}`
+    if (seen.has(k)) return
+    seen.add(k)
+    out.push({ tag, source })
+  }
+  if (!node) return out
+  const visit = (n) => {
+    if (isSecretEnvRead(n)) { push('env', calleeName(n) ?? 'process.env'); return }
+    if (isDecodeCall(n)) { push('decode', calleeName(n.callee)?.split('.').slice(0, 2).join('.') ?? 'decode'); return }
+    if (isReadCall(n)) { push('read', calleeName(n.callee) ?? 'read'); return }
+    if (n?.type === 'Identifier' && /^(conversation|memory|history|chatHistory|session|context)$/.test(n.name)) { push('memory', n.name); return }
+    if (toolArgName && n?.type === 'MemberExpression' && n.object.type === 'Identifier' && n.object.name === toolArgName) {
+      push('args', calleeName(n) ?? 'direct')
+    }
+  }
+  walk(node, visit)
+  visit(node)
+  return out
 }
 
 /** 参数树中的源头表达式名(args.command / process.env.X / Buffer.from / readFileSync 等)。 */
@@ -205,40 +268,42 @@ function taintFunction(ctx, fn, depth = 0) {
     const sink = SINKS.find((s) => s.names.includes(sinkName))
     if (!sink) continue
 
-    // 参数污点标签 + 源头名
-    let tag = null
-    let sourceName = null
+    // 参数污点:同一参数的所有独立 source(P1-4 §13.3,一个 arg → 多个 flow)
+    let argTaints = []
     for (const arg of call.arguments) {
-      const t = sourceTag(arg, fn.toolArgName)
-      if (t) {
-        tag = t
-        sourceName = sourceNameInArg(arg, fn.toolArgName)
-        break
-      }
+      argTaints = expressionTaints(arg, fn.toolArgName)
+      if (argTaints.length > 0) break
       const refs = referencedIdentifiers(arg)
       for (const r of refs) {
-        if (taints.has(r)) {
-          tag = taints.get(r).tag
-          sourceName = taints.get(r).source
+        if (taints.has(r)) { // 外层传播 Map(变量名 → {tag, source})
+          const t = taints.get(r)
+          argTaints = [{ tag: t.tag, source: t.source }]
           break
         }
       }
-      if (tag) break
+      if (argTaints.length > 0) break
     }
-    if (!tag) continue
+    if (argTaints.length === 0) continue
 
-    // 规则选择
-    let ruleId = sink.ruleId
-    let severity = sink.severity
-    let category = 'agent'
-    if (tag === 'env' && sink.type === 'network') {
-      const lineText = (content.split('\n')[lineSnippet(content, call).line - 1] ?? '')
-      if (TRUSTED_HOSTS.test(lineText)) continue // 受信 API 端点的凭据使用是正常行为
-      ruleId = 'SEN-TAINT-001'; severity = 'critical'; category = 'taint'
+    // 每个独立 taint 各走规则选择 → 独立 semantic flow(去重键含 source+sink)
+    for (const t of argTaints) {
+      let ruleId = sink.ruleId
+      let severity = sink.severity
+      let category = 'agent'
+      if (t.tag === 'env' && sink.type === 'network') {
+        const lineText = (content.split('\n')[lineSnippet(content, call).line - 1] ?? '')
+        // P1-1:凭据专属豁免——secret 名匹配 + 官方端点才放行;大厂 host 只作 evidence。
+        const secretName = secretNameFrom(t.source)
+        const urlMatch = /https?:\/\/[^\s"'<>)]+/.exec(lineText)
+        if (secretName && urlMatch && isExpectedCredentialDestination(secretName, urlMatch[0])) {
+          continue // 该凭据的官方 API 目标:正常使用,不产生 critical
+        }
+        ruleId = 'SEN-TAINT-001'; severity = 'critical'; category = 'taint'
+      }
+      else if ((t.tag === 'read' || t.tag === 'memory') && sink.type === 'network') { ruleId = 'SEN-TAINT-002'; severity = 'high'; category = 'taint' }
+      else if (t.tag === 'decode' && sink.type === 'shell') { ruleId = 'SEN-TAINT-003'; severity = 'critical'; category = 'taint' }
+      pushFinding(ruleId, severity, category, t.source, sinkName, sink.type, call)
     }
-    else if ((tag === 'read' || tag === 'memory') && sink.type === 'network') { ruleId = 'SEN-TAINT-002'; severity = 'high'; category = 'taint' }
-    else if (tag === 'decode' && sink.type === 'shell') { ruleId = 'SEN-TAINT-003'; severity = 'critical'; category = 'taint' }
-    pushFinding(ruleId, severity, category, sourceName, sinkName, sink.type, call)
   }
 
   // 跨函数(同文件,深度受限):本地函数调用,参数带污点 → 递归分析该函数
