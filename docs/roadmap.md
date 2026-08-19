@@ -14,10 +14,13 @@
 - [ ] **自荐展示位:等 star > 10** 后按提交包执行(CI 自动核验 star 数)
 - [x] dsh-market:目录即 awesome-dsh-plugin 注册表,自动跟随,无需单独提交
 
-### 3. npm 发布(需要你的 npm 账号)
+### 3. npm 发布 ✅(2026-08-18)
 - [x] 包名定为 **`deepseek-harness-sentinel`**(`dsh-sentinel` 在 npm 已被占用),patch/README 已同步
 - [x] `npm pack --dry-run` 验证通过:11 文件 / 28.4 kB,内容正确
-- [ ] **执行:`npm login && npm publish`**(交互式认证无法代做)
+- [x] **v0.1.0 已发布**:`npm view deepseek-harness-sentinel` 线上可见;全局安装 + CLI 冒烟测试通过
+- [x] 发布方式:浏览器交互 2FA 挑战(npm 2026-07-31 新政禁掉 bypass-2FA 令牌,发布必须走 EOTP 浏览器认证)
+- [ ] 配置 Trusted Publishing(OIDC):包设置页 → Trusted Publisher → `Eligahyu/dsh-sentinel` / `publish.yml` → 之后打 tag 自动发布
+- [ ] 撤销对话中暴露的 5 个令牌
 
 ### 4. 中文社区传播
 - [x] 生态体检素材已生成:`docs/ecosystem-scan.md`(11 个 Top 插件扫描快照)
