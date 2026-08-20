@@ -42,6 +42,24 @@ export const TEST_SEVERITY_DOWNGRADE = Object.freeze({
   info: 'info',
 })
 
+/** Unreachable tests and explicit development helpers remain visible, but cannot dominate a package verdict. */
+export const NON_RUNTIME_CONTEXT_SCORE_CAP = 20
+
+/** Low-confidence heuristic evidence is scored one severity level lower. */
+export function scoredSeverity(severity, { context = 'source', confidence = 'medium' } = {}) {
+  let weighted = context === 'source' ? severity : (TEST_SEVERITY_DOWNGRADE[severity] ?? severity)
+  if (confidence === 'low') weighted = TEST_SEVERITY_DOWNGRADE[weighted] ?? weighted
+  return weighted
+}
+
+function scoreFromContextStats(allStats) {
+  const byContext = allStats?.rawScoreByContext
+  if (!byContext) return allStats?.rawScore ?? 0
+  return (byContext.source ?? 0)
+    + Math.min(NON_RUNTIME_CONTEXT_SCORE_CAP, byContext.test ?? 0)
+    + Math.min(NON_RUNTIME_CONTEXT_SCORE_CAP, byContext.development ?? 0)
+}
+
 /**
  * 同源重叠抑制:同一文件同一行的"更具体规则"命中时,抑制"更泛规则"的评分
  * (证据保留在报告中,见 scanner.markSuppressed)。
@@ -61,6 +79,13 @@ export const OVERLAP_SUPPRESSION = [
  */
 export function isTestPath(relPath) {
   return /(^|[\\/])(?:test|tests|__tests__|spec|e2e)([\\/]|\.)|\.(?:spec|test|e2e)\./i.test(relPath)
+}
+
+/** Non-runtime evaluation/release helpers:reported at full severity, scored one level lower. */
+export function isDevelopmentPath(relPath) {
+  const normalized = String(relPath ?? '').replace(/\\/g, '/')
+  if (/(^|\/)(?:evals?|bench|benchmark|benchmarks|examples?|fixtures)(\/|$)/i.test(normalized)) return true
+  return /(^|\/)(?:scripts\/)?(?:release|live-e2e|check|check-package|dev-run|docs-list)(?:[.\/-]|$)/i.test(normalized)
 }
 
 export function verdictFor(score) {
@@ -107,27 +132,34 @@ export function buildReport(parts, maxFindings = 300) {
     : emptyCounts()
   const contextCounts = parts.allStats?.byContext
     ? { ...parts.allStats.byContext }
-    : { source: 0, test: 0 }
+    : { source: 0, test: 0, development: 0 }
 
   let score = 0
   let total = 0
   const scoreBasedOnAllFindings = Boolean(parts.allStats)
   if (parts.allStats) {
-    score = Math.min(100, parts.allStats.rawScore)
+    score = Math.min(100, scoreFromContextStats(parts.allStats))
     total = parts.allStats.findingCount
   } else {
     // Legacy path(无 allStats):从 findings 计算
     for (const f of suppressOverlaps(parts.findings ?? [])) {
       total += 1
-      const inTest = isTestPath(f.file)
-      if (inTest) contextCounts.test += 1
-      else contextCounts.source += 1
+      const context = isTestPath(f.file) ? 'test' : isDevelopmentPath(f.file) ? 'development' : 'source'
+      contextCounts[context] = (contextCounts[context] ?? 0) + 1
       counts.bySeverity[f.severity] = (counts.bySeverity[f.severity] ?? 0) + 1
       counts.byCategory[f.category] = (counts.byCategory[f.category] ?? 0) + 1
-      const weighted = inTest ? (TEST_SEVERITY_DOWNGRADE[f.severity] ?? f.severity) : f.severity
+      const weighted = scoredSeverity(f.severity, { context, confidence: f.confidence })
       score += severityWeight(weighted)
     }
-    score = Math.min(100, score)
+    // Legacy callers do not carry per-context scores, so reconstruct them from findings.
+    const legacyScores = { source: 0, test: 0, development: 0 }
+    for (const f of suppressOverlaps(parts.findings ?? [])) {
+      const context = isTestPath(f.file) ? 'test' : isDevelopmentPath(f.file) ? 'development' : 'source'
+      legacyScores[context] += severityWeight(scoredSeverity(f.severity, { context, confidence: f.confidence }))
+    }
+    score = Math.min(100, legacyScores.source
+      + Math.min(NON_RUNTIME_CONTEXT_SCORE_CAP, legacyScores.test)
+      + Math.min(NON_RUNTIME_CONTEXT_SCORE_CAP, legacyScores.development))
   }
 
   let verdict = verdictFor(score)
@@ -169,6 +201,7 @@ export function buildReport(parts, maxFindings = 300) {
         recommendation: f.recommendation ?? '',
         package: f.package ?? '',
         testFile: isTestPath(f.file),
+        ...(isDevelopmentPath(f.file) ? { developmentFile: true } : {}),
         ...(redacted.redacted ? { redacted: true, secretFingerprints: redacted.fingerprints } : {}),
         ...(f.analysisMode ? { analysisMode: f.analysisMode } : {}),
         ...(f.bundleFile ? { bundleFile: true } : {}),

@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- TypeScript/TSX/MTS/CTS 模块图使用静态 import/export 降级，不再因 Acorn 的 TS 能力边界把完整扫描误判为 incomplete；补齐 `.js` 到 TS 源文件的解析回退。
+- 非 JS/TS 文件不再进入模块图；声明文件、测试与显式开发 runner 的缺失构建产物改为 warning，路径逃逸和核心读取失败仍保持 incomplete。
+- 依赖图、SBOM、provenance、能力图失败作为辅助层 warning，不再覆盖核心扫描完整性。
+- 支持默认导出的 Cordis service class 与 `export async function apply` 入口契约。
+- finding 指纹加入稳定代码锚点和重复序号，避免同文件同规则独立调用点碰撞；SARIF 复用报告指纹。
+- 测试与开发上下文分别封顶 20 风险分，低置信度证据再降一级计分；安装脚本和运行入口可达文件仍全额计分。
+- 注释不再触发 `SEN-EXFIL-002`，特殊用途/私有 IPv4 不再误报为公网硬编码地址。
+- 真实语料改为固定 commit 的完整浅克隆并拒绝 CDN/HTML 错误正文，不安装依赖、不执行第三方代码。
+- CI 路径与 tar 测试改为跨平台；仓库自扫描使用 PR 当前 Action，并显式忽略规则目录和恶意测试夹具。
+
+### Verification
+
+- 197 项测试全绿；32 项 benchmark：rule F1 0.976、finding F1 0.957、flow F1 1.000。
+- 6 个固定 commit 的真实 DSH 插件仓库全部 `scanComplete=true`。
+
 ## 0.4.3 (2026-08) — 文档同步
 
 - README / roadmap / submission-awesome 同步至 v0.4.2 状态:151 项测试、32 项 benchmark 语料(edge 16 项)、standalone 文案(移除 zero-dependency)

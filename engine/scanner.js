@@ -28,7 +28,7 @@ import { createHash } from 'node:crypto'
 import { RULES, CODE_EXT, SEVERITY_ORDER, CATEGORIES, severityWeight } from './rules.js'
 import { buildModuleGraph } from './semantic/module-graph.js'
 import { resolveInside, PathEscapeError } from './path-safety.js'
-import { isTestPath, TEST_SEVERITY_DOWNGRADE, OVERLAP_SUPPRESSION } from './report.js'
+import { isTestPath, isDevelopmentPath, scoredSeverity, OVERLAP_SUPPRESSION } from './report.js'
 import { semanticScan } from './semantic/index.js'
 import { auditBinarySample } from './binary/inspect.js'
 
@@ -408,7 +408,8 @@ export function emptyAllStats() {
   return {
     bySeverity: Object.fromEntries(SEVERITY_ORDER.map((s) => [s, 0])),
     byCategory: Object.fromEntries(CATEGORIES.map((c) => [c, 0])),
-    byContext: { source: 0, test: 0 },
+    byContext: { source: 0, test: 0, development: 0 },
+    rawScoreByContext: { source: 0, test: 0, development: 0 },
     findingCount: 0,
     rawScore: 0,
   }
@@ -443,9 +444,12 @@ export class FindingCollector {
     this.staged = []
   }
 
-  /** test 文件降权判断:test 路径且未被 runtime entry(main/exports/bin/patch)reachable。 */
-  isTest(relPath) {
-    return isTestPath(relPath) && !this.testReachableFiles.has(relPath)
+  /** Runtime-reachable files are source; tests and explicit dev runners use reduced scoring. */
+  context(relPath) {
+    if (this.testReachableFiles.has(relPath)) return 'source'
+    if (isTestPath(relPath)) return 'test'
+    if (isDevelopmentPath(relPath)) return 'development'
+    return 'source'
   }
 
   /** 正则规则批量命中:所有命中同 severity/category,total 可能大于保存条数。 */
@@ -453,13 +457,15 @@ export class FindingCollector {
     if (total <= 0) return
     this.allStats.bySeverity[rule.severity] += total
     this.allStats.byCategory[rule.category] += total
-    const inTest = this.isTest(relPath)
-    this.allStats.byContext[inTest ? 'test' : 'source'] += total
+    const context = this.context(relPath)
+    this.allStats.byContext[context] += total
     this.allStats.findingCount += total
     const excess = total - saved.length
     if (excess > 0) {
-      const w = inTest ? (TEST_SEVERITY_DOWNGRADE[rule.severity] ?? rule.severity) : rule.severity
-      this.allStats.rawScore += severityWeight(w) * excess
+      const w = scoredSeverity(rule.severity, { context })
+      const points = severityWeight(w) * excess
+      this.allStats.rawScore += points
+      this.allStats.rawScoreByContext[context] += points
     }
     this.staged.push(...saved)
   }
@@ -467,11 +473,11 @@ export class FindingCollector {
   /** 语义/二进制/manifest finding:逐条统计。 */
   addSemantic(findings, relPath) {
     if (!findings || findings.length === 0) return
-    const inTest = this.isTest(relPath)
+    const context = this.context(relPath)
     for (const f of findings) {
       this.allStats.bySeverity[f.severity] = (this.allStats.bySeverity[f.severity] ?? 0) + 1
       this.allStats.byCategory[f.category] = (this.allStats.byCategory[f.category] ?? 0) + 1
-      this.allStats.byContext[inTest ? 'test' : 'source'] += 1
+      this.allStats.byContext[context] += 1
       this.allStats.findingCount += 1
     }
     this.staged.push(...findings)
@@ -480,11 +486,13 @@ export class FindingCollector {
   /** 文件处理完毕:重叠抑制标记 + 精确 rawScore + 入缓冲。 */
   finalizeFile(relPath) {
     markSuppressed(this.staged)
-    const inTest = this.isTest(relPath)
+    const context = this.context(relPath)
     for (const f of this.staged) {
       if (!f.suppressedForScore) {
-        const w = inTest ? (TEST_SEVERITY_DOWNGRADE[f.severity] ?? f.severity) : f.severity
-        this.allStats.rawScore += severityWeight(w)
+        const w = scoredSeverity(f.severity, { context, confidence: f.confidence })
+        const points = severityWeight(w)
+        this.allStats.rawScore += points
+        this.allStats.rawScoreByContext[context] += points
       }
       this.buffer.add(f)
     }
@@ -505,13 +513,17 @@ export function mergeStats(a, b) {
   const bySeverity = { ...a.bySeverity }
   const byCategory = { ...a.byCategory }
   const byContext = { ...a.byContext }
+  const rawScoreByContext = { ...(a.rawScoreByContext ?? { source: a.rawScore ?? 0, test: 0, development: 0 }) }
   for (const [k, v] of Object.entries(b?.bySeverity ?? {})) bySeverity[k] = (bySeverity[k] ?? 0) + v
   for (const [k, v] of Object.entries(b?.byCategory ?? {})) byCategory[k] = (byCategory[k] ?? 0) + v
   for (const [k, v] of Object.entries(b?.byContext ?? {})) byContext[k] = (byContext[k] ?? 0) + v
+  const bScoreByContext = b?.rawScoreByContext ?? { source: b?.rawScore ?? 0 }
+  for (const [k, v] of Object.entries(bScoreByContext)) rawScoreByContext[k] = (rawScoreByContext[k] ?? 0) + v
   return {
     bySeverity,
     byCategory,
     byContext,
+    rawScoreByContext,
     findingCount: a.findingCount + (b?.findingCount ?? 0),
     rawScore: a.rawScore + (b?.rawScore ?? 0),
   }
@@ -913,10 +925,12 @@ export function hasExportContract(absPath) {
   const content = readMaybe(absPath)
   if (content === null) return false
   const has = (re) => re.test(content)
+  const hasNamedExport = (identifier) => new RegExp(
+    `export\\s+(?:(?:const|let|class|default)\\s+${identifier}\\b|(?:async\\s+)?function\\s+${identifier}\\b)`,
+  ).test(content)
 
   // ESM 命名导出:export const name / export function apply 等。
-  if (has(/export\s+(?:const|let|function|class|default)\s+name\b/)
-    && has(/export\s+(?:const|let|function|class|default)\s+apply\b/)) {
+  if (hasNamedExport('name') && hasNamedExport('apply')) {
     return true
   }
   // ESM 导出列表形态:export { name, apply }(压缩 bundle 常用)
@@ -930,6 +944,13 @@ export function hasExportContract(absPath) {
   if (defStart >= 0) {
     const body = content.slice(defStart)
     return /\bname\s*:/.test(body) && /\bapply\s*[:(]/.test(body)
+  }
+  // Cordis service class:class declaration exported as default is itself a valid plugin.
+  if (/export\s+default\s+class(?:\s+[A-Za-z_$][\w$]*)?\s*\{/m.test(content)) return true
+  const defaultIdentifier = /export\s+default\s+([A-Za-z_$][\w$]*)\s*;?/m.exec(content)?.[1]
+  if (defaultIdentifier) {
+    const escaped = defaultIdentifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    if (new RegExp(`(?:export\\s+)?class\\s+${escaped}\\b`).test(content)) return true
   }
   // CommonJS:module.exports = {...} / exports.default = {...},必须含两个键。
   const cjsRe = /(?:module\.exports|exports\.default)\s*=\s*\{([\s\S]*?)\n?\}/m

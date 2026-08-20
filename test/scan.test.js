@@ -8,6 +8,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { join, dirname } from 'node:path'
+import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { scan, scanProfile, RULES, parsePatchRows } from '../engine/index.js'
 import { SEVERITY_ORDER, CATEGORIES, SEVERITY_WEIGHT } from '../engine/rules.js'
@@ -176,6 +177,33 @@ test('CommonJS compiled bundles (module.exports / exports.default) pass the entr
     }
   } finally {
     rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
+test('default-exported Cordis service classes pass the plugin entry contract', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'dsh-default-class-'))
+  try {
+    writeFileSync(join(root, 'package.json'), JSON.stringify({
+      name: '@example/service-plugin',
+      version: '1.0.0',
+      description: 'service plugin',
+      license: 'MIT',
+      type: 'module',
+      main: './index.js',
+      dsh: { bundle: { patch: './cordis.patch.yml' } },
+    }))
+    writeFileSync(join(root, 'cordis.patch.yml'), "- insert:\n    - id: service\n      name: '@example/service-plugin'\n")
+    writeFileSync(join(root, 'index.js'), [
+      'export class PluginService {',
+      '  constructor(ctx) { ctx.provide("service", this) }',
+      '}',
+      'export default PluginService',
+    ].join('\n'))
+
+    const report = await scan(root)
+    assert.equal(report.findings.some((finding) => finding.id === 'SEN-MAN-006'), false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
   }
 })
 

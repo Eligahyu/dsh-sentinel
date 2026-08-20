@@ -272,6 +272,7 @@ export const RULES = Object.freeze([
     description: '网络请求的参数/头/体中拼接了 process.env 或密钥变量,存在把凭据外传的风险。',
     recommendation: '确认请求目标完全可信,且凭据绝不出本机。任何将 env 拼进 URL 查询参数的行为都应视为危险。',
     filePattern: CODE,
+    ignoreComments: true,
     contentPatterns: [
       {
         re: /(?:fetch|axios|XMLHttpRequest|sendBeacon|http\.request|https\.request)[^;]{0,300}process\s*\.\s*env[^;]{0,200}/is,
@@ -480,9 +481,10 @@ export const RULES = Object.freeze([
     description: '源码中直接出现公网 IPv4 字面量(排除 127.x / 10.x / 192.168.x / 172.16-31.x / 0.x / 255.x)。',
     recommendation: '确认该地址的用途与归属。',
     filePattern: CODE,
+    ignoreComments: true,
     linePatterns: [
       {
-        re: /["'`](?!127\.|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|0\.|255\.)(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?!\.)["'`]/,
+        re: /["'`](?!0\.|10\.|100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.|127\.|169\.254\.|172\.(?:1[6-9]|2\d|3[01])\.|192\.(?:0\.0\.|0\.2\.|88\.99\.|168\.)|198\.(?:1[89]\.|51\.100\.)|203\.0\.113\.|(?:22[4-9]|23\d|24\d|25[0-5])\.)(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?!\.)["'`]/,
       },
     ],
   },

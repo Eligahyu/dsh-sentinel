@@ -57,6 +57,22 @@ test('failed analysis layer makes the report incomplete and preserves reasons', 
   assert.equal(typeof report.summary.incompleteReasons, 'object')
 })
 
+test('failed dependency graph is preserved as an auxiliary warning without marking the scan incomplete', () => {
+  const report = buildReport(minimalParts({
+    analysisLayers: {
+      dependencyGraph: {
+        complete: false,
+        failures: [{ reason: 'unsupported-lockfile' }],
+      },
+    },
+  }))
+
+  assert.equal(report.summary.scanComplete, true)
+  assert.deepEqual(report.summary.incompleteReasons, [])
+  assert.equal(report.analysisLayers.dependencyGraph.complete, false)
+  assert.deepEqual(report.analysisLayers.dependencyGraph.failures, [{ reason: 'unsupported-lockfile' }])
+})
+
 test('analysis evidence is retained on findings and validated', () => {
   const report = buildReport(minimalParts({
     findings: [{
