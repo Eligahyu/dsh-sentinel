@@ -210,7 +210,8 @@ test('resolveInside mustExist:逃逸与缺失都抛 PathEscapeError,合法存在
 // ---- P0-6: tarball / quarantine 全生命周期 cleanup ----
 
 function sentinelLeftovers() {
-  return readdirSync(tmpdir()).filter((n) => n.startsWith('sentinel-pkg-') || n.startsWith('sentinel-quarantine-'))
+  const pid = String(process.pid)
+  return readdirSync(tmpdir()).filter((n) => n.startsWith(`sentinel-pkg-${pid}-`) || n.startsWith(`sentinel-quarantine-${pid}-`))
 }
 
 /** 手工构造带指定条目名的 gzip tar(绕过 tar.exe 的路径规范化)。 */
