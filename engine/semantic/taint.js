@@ -86,6 +86,7 @@ const MESSAGES = {
   'SEN-TAINT-001': '凭据(env)流向网络请求,存在外传风险',
   'SEN-TAINT-002': '文件读取结果流向网络请求,存在源码/数据外传风险',
   'SEN-TAINT-003': '解码后的内容流向动态执行,疑似混淆载荷',
+  'SEN-TAINT-004': '文件读取结果进入 shell 执行,存在代码注入面(文件内容可能来自构建产物/外部输入)',
 }
 const RECOMMENDATIONS = {
   'SEN-AGENT-001': '拒绝把模型输入直接拼进 shell 命令;用参数数组形式 spawn(cmd, [args]) 并做白名单校验。',
@@ -95,6 +96,7 @@ const RECOMMENDATIONS = {
   'SEN-TAINT-001': '确认请求目标完全可信;凭据绝不应流向非官方端点。',
   'SEN-TAINT-002': '确认工作区内容不会随网络请求离开本机。',
   'SEN-TAINT-003': '解码内容必须人工复核;无文档说明的解码执行按恶意处理。',
+  'SEN-TAINT-004': '确认喂给子进程的文件内容来源可信(仅构建产物/白名单路径);避免把可变外部文件拼入命令。',
 }
 
 /** 归一化 callee:应用别名与 cp 变量。 */
@@ -363,6 +365,7 @@ function taintFunction(ctx, fn, depth = 0) {
       }
       else if ((t.tag === 'read' || t.tag === 'memory') && sink.type === 'network') { ruleId = 'SEN-TAINT-002'; severity = 'high'; category = 'taint' }
       else if (t.tag === 'decode' && sink.type === 'shell') { ruleId = 'SEN-TAINT-003'; severity = 'critical'; category = 'taint' }
+      else if (t.tag === 'read' && sink.type === 'shell') { ruleId = 'SEN-TAINT-004'; severity = 'high'; category = 'taint' }
       pushFinding(ruleId, severity, category, t.source, sinkName, sink.type, call)
     }
   }

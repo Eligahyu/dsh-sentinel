@@ -755,6 +755,27 @@ export function apply(ctx) {
   assert.ok(hit, 'db 查询结果间接进入 shell 必须检测')
 })
 
+test('read → shell 是 SEN-TAINT-004 而非 SEN-AGENT-001(真实语料误报回归)', async () => {
+  const { semanticScan } = await import('../engine/semantic/index.js')
+  // 真实案例:dsh-llm-fallbacks scripts/verify-dist.mjs — readFileSync 结果经
+  // spawnSync input 选项喂给 node --check(构建产物语法校验)
+  const src = `
+import { readFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+const code = readFileSync('dist/index.js', 'utf8')
+const result = spawnSync(process.execPath, ['--check', '--input-type=module'], {
+  input: code,
+  encoding: 'utf8',
+})`
+  const findings = semanticScan(src, 'a.js')
+  const agent001 = findings.filter((f) => f.ruleId === 'SEN-AGENT-001')
+  const taint004 = findings.filter((f) => f.ruleId === 'SEN-TAINT-004')
+  assert.equal(agent001.length, 0, 'read→shell 不得标成"模型可控输入"(SEN-AGENT-001)')
+  assert.equal(taint004.length, 1, 'read→shell 应标为 SEN-TAINT-004')
+  assert.equal(taint004[0].source.name, 'readFileSync')
+  assert.equal(taint004[0].sink.callee, 'spawnSync')
+})
+
 test('gzip bomb:压缩包超限被拒绝(TAR_LIMITS 可注入)', async () => {
   const { extractTarballSafe, TAR_LIMITS } = await import('../engine/package/tar.js')
   const root = mkdtempSync(join(tmpdir(), 'gzip-bomb-'))
