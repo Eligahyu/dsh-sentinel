@@ -1,0 +1,8 @@
+{
+  "mode": "source",
+  "failOn": "high",
+  "ignore": [
+    "engine/**",
+    "test/**"
+  ]
+}

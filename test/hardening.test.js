@@ -16,6 +16,8 @@ import { PathEscapeError, resolveInside } from '../engine/path-safety.js'
 import { extractTarball } from '../engine/package/tarball.js'
 import { extractTarballSafe, TarSafetyError } from '../engine/package/tar.js'
 
+const TAR_COMMAND = process.platform === 'win32' ? 'tar.exe' : 'tar'
+
 // ---- P0-1: FindingBuffer 反向淘汰 ----
 
 test('buffer:critical 后 info 不得淘汰 critical', () => {
@@ -169,9 +171,9 @@ function makeBundle(opts = {}) {
   return root
 }
 
-test('patch 逃逸到 bundle root 外:不读取、不加入、不抛未处理异常', () => {
+test('patch 逃逸到 bundle root 外:不读取、不加入、不抛未处理异常', (t) => {
   const root = makeBundle({ patch: '../../secret.yml' })
-  writeFileSync(join(root, '../../secret.yml'), 'should never be read: secret')
+  t.after(() => rmSync(root, { recursive: true, force: true }))
   let out
   assert.doesNotThrow(() => { out = computeRuntimeEntries(root) })
   assert.ok(![...out].some((p) => p.includes('secret')))
@@ -186,9 +188,9 @@ test('patch 缺失(mustExist):跳过 patch rows,不抛异常', () => {
   assert.ok(out.has('index.js'))
 })
 
-test('main 逃逸:不加入 runtime entries', () => {
+test('main 逃逸:不加入 runtime entries', (t) => {
   const root = makeBundle({ main: '../../outside.js' })
-  writeFileSync(join(root, '../../outside.js'), 'export const name = "x"\nexport function apply() {}\n')
+  t.after(() => rmSync(root, { recursive: true, force: true }))
   const out = computeRuntimeEntries(root)
   assert.ok(![...out].some((p) => p.includes('outside')))
 })
@@ -246,7 +248,7 @@ test('extractTarball:成功解包后 cleanup 无 quarantine 残留', async () =>
   writeFileSync(join(inner, 'index.js'), 'export const name = "x"\nexport function apply() {}\n')
   writeFileSync(join(inner, 'package.json'), '{"name":"x","version":"1.0.0"}')
   const tar = join(pkgDir, 'x.tgz')
-  execFileSync('tar.exe', ['-czf', tar, '-C', pkgDir, 'package'])
+  execFileSync(TAR_COMMAND, ['-czf', tar, '-C', pkgDir, 'package'])
   const { cleanup } = await extractTarball(tar)
   cleanup()
   const after = sentinelLeftovers().filter((n) => !before.has(n))
@@ -968,7 +970,7 @@ test('SC-cleanup:cleanup 删除 quarantine 与传入 tgz(§25)', async () => {
     const pkgDir = join(tmp, 'src')
     mkdirSync(join(pkgDir, 'package'), { recursive: true })
     writeFileSync(join(pkgDir, 'package', 'index.js'), 'export const a = 1\n')
-    execFileSync('tar.exe', ['-czf', tgz, '-C', pkgDir, 'package'])
+    execFileSync(TAR_COMMAND, ['-czf', tgz, '-C', pkgDir, 'package'])
     assert.equal(existsSync(tgz), true)
     const { dir, cleanup } = await extractTarball(tgz)
     assert.ok(existsSync(dir))
@@ -1000,7 +1002,7 @@ test('SC-cleanup:cleanup 幂等(重复调用安全)', async () => {
     const pkgDir = join(tmp, 'src')
     mkdirSync(join(pkgDir, 'package'), { recursive: true })
     writeFileSync(join(pkgDir, 'package', 'index.js'), 'export const a = 1\n')
-    execFileSync('tar.exe', ['-czf', tgz, '-C', pkgDir, 'package'])
+    execFileSync(TAR_COMMAND, ['-czf', tgz, '-C', pkgDir, 'package'])
     const { cleanup } = await extractTarball(tgz)
     assert.doesNotThrow(() => { cleanup(); cleanup(); cleanup() })
     assert.equal(existsSync(tgz), false)

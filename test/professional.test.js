@@ -119,12 +119,13 @@ test('manifest 路径逃逸 → SEN-MAN-009', async () => {
 })
 
 test('path-safety 工具函数', () => {
-  const root = 'C:/proj/pkg'
-  assert.equal(isInsideRoot(root, 'C:/proj/pkg/lib/index.js'), true)
-  assert.equal(isInsideRoot(root, 'C:/proj/pkg'), true)
-  assert.equal(isInsideRoot(root, 'C:/proj/other/x.js'), false)
-  assert.equal(isInsideRoot(root, 'C:/proj/pkgx/evil.js'), false, '前缀相似但不是子目录')
-  assert.equal(resolveInside(root, './lib/x.js'), 'C:/proj/pkg/lib/x.js'.replace(/\//g, '\\'))
+  const parent = join(tmpdir(), 'sentinel-path-professional')
+  const root = join(parent, 'pkg')
+  assert.equal(isInsideRoot(root, join(root, 'lib', 'index.js')), true)
+  assert.equal(isInsideRoot(root, root), true)
+  assert.equal(isInsideRoot(root, join(parent, 'other', 'x.js')), false)
+  assert.equal(isInsideRoot(root, join(parent, 'pkgx', 'evil.js')), false, '前缀相似但不是子目录')
+  assert.equal(resolveInside(root, './lib/x.js'), join(root, 'lib', 'x.js'))
   assert.throws(() => resolveInside(root, '../../etc/passwd'), PathEscapeError)
 })
 
