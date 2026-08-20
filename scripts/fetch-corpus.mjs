@@ -1,124 +1,119 @@
-// 通过 jsDelivr CDN 抓取生态 Top 插件关键文件(两阶段,curl 实现)。
-// 用法:node scripts/fetch-corpus.mjs
-import { mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs'
-import { join } from 'node:path'
+/**
+ * Fetch a source-complete DSH corpus without executing repository code.
+ *
+ * Safety properties:
+ * - shallow, blob-filtered Git clone; no submodules
+ * - no npm install/ci and no lifecycle scripts
+ * - clone into a process-scoped partial directory, validate, then rename
+ * - old CDN corpus is left untouched in scratch/corpus
+ *
+ * Usage:
+ *   node scripts/fetch-corpus.mjs
+ *   DSH_CORPUS_LIMIT=5 node scripts/fetch-corpus.mjs
+ *   DSH_CORPUS_REPOS=owner/repo,owner/repo node scripts/fetch-corpus.mjs
+ */
+import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { basename, join, relative, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
-import { tmpdir } from 'node:os'
+import { cloneArgs, validateRepositoryTree } from './corpus-utils.mjs'
 
-const ROOT = join(process.cwd(), 'scratch', 'corpus')
-mkdirSync(ROOT, { recursive: true })
-
-const PLUGINS = [
-  // —— 第三轮:全类别覆盖(桌面壳 / 记忆 / 视觉 / 工具集 / 皮肤 / 桌宠 / 导入 / 费用 / 消息 / 插件管理 / 自动化 / 逆向)——
-  'hairyf/deepseek-harness-desktop',
-  'fufankeji/deepseek-harness-studio',
-  'whitelonng/dshcode',
-  'ZSeven-W/dsh-noema',
-  'omdsh-dev/dsh-mnemon',
+const DEFAULT_REPOSITORIES = [
+  'AX1202/ax-feishu-bridge',
+  'Anionex/dsh-turn-rewind',
+  'Anionex/dsh-vision-toolkit',
+  'anysearch-team/anysearch-dsh',
+  'flymysql/dsh-remote',
+  'liustack/modlens',
   'LoserFox/distill',
-  'ysr666/dsh-vision-router',
-  'oil-oil/dsh-vision',
-  'omdsh-dev/dsh-toolkit',
+  'NanmiCoder/dsh-agent-teams',
+  'Noob-stupid/dsh-plugin-hub',
   'omdsh-dev/dsh-at-file',
   'omdsh-dev/dsh-custom-tool',
-  'WYH66666666/DSH-Transparent-UI-Plugin',
-  'HeiGeAi/deepseek-harness-skin',
-  'PC2005-cloud/dsh-pet',
-  'liyupi/dsh-kun-like-pet',
-  'lhh010/dsh-minigames',
-  'hellodigua/dsh-emoji',
-  'hellodigua/dsh-share',
-  'Nwflower/dsh-chat-import',
-  'Han-1413141/dsh-cost-meter',
-  'Ychris12138/dsh-usage-stats',
-  'Moeblack/dsh-message-edit',
-  'HsiangNianian/dsh-auto-continue',
-  'Anionex/dsh-turn-rewind',
-  'Noob-stupid/dsh-plugin-hub',
-  'LX2000WASD/dsh-web-plugin-manager',
-  'vlln/plugin-registry',
-  'morluto/rea',
-  'anysearch-team/anysearch-dsh',
-  'kelai141/dsh-mobile-apk',
+  'omdsh-dev/dsh-mnemon',
+  'tencent-connect/dsh-qqbot',
+  'zhuiyueya/dsh-im-gateway',
 ]
 
-// 沙箱限制:不能通过管道捕获子进程 stdout,curl 用 -o 直接落盘再读文件。
-const TMP = join(tmpdir(), 'dsh-corpus-tmp')
-mkdirSync(TMP, { recursive: true })
+const ROOT = resolve(process.env.DSH_CORPUS_ROOT || join(process.cwd(), 'scratch', 'corpus-full'))
+const requested = process.env.DSH_CORPUS_REPOS
+  ? process.env.DSH_CORPUS_REPOS.split(',').map((value) => value.trim()).filter(Boolean)
+  : DEFAULT_REPOSITORIES
+const limit = Number.parseInt(process.env.DSH_CORPUS_LIMIT || String(requested.length), 10)
+const repositories = requested.slice(0, Number.isFinite(limit) && limit > 0 ? limit : requested.length)
+mkdirSync(ROOT, { recursive: true })
 
-/** Fetch text via curl -o; returns content or null. */
-function curl(url) {
-  const tmpFile = join(TMP, `fetch-${Date.now()}-${Math.random().toString(36).slice(2)}`)
-  const r = spawnSync('curl.exe', ['-s', '--max-time', '12', '-o', tmpFile, url], { stdio: 'ignore' })
-  let content = null
-  if (r.status === 0 && existsSync(tmpFile)) {
-    const stat = readFileSync(tmpFile)
-    if (stat.length > 0) content = stat.toString('utf8')
-  }
-  rmSync(tmpFile, { force: true })
-  return content
+function destinationFor(repository) {
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repository)) throw new Error(`invalid GitHub repository: ${repository}`)
+  return join(ROOT, repository.replace('/', '__'))
 }
 
-function save(repo, rel, branch, content) {
-  const dir = join(ROOT, repo.replace('/', '__'))
-  mkdirSync(dir, { recursive: true })
-  writeFileSync(join(dir, rel.replace(/[\\/:]/g, '__')), content, 'utf8')
+function assertDisposable(path) {
+  const rel = relative(ROOT, resolve(path))
+  if (!rel || rel.startsWith('..') || rel.includes(':') || !basename(path).includes(`.partial-${process.pid}-`)) {
+    throw new Error(`refusing to remove path outside corpus partial scope: ${path}`)
+  }
 }
 
-let fetched = 0
-let misses = 0
-for (const repo of PLUGINS) {
-  const dir = join(ROOT, repo.replace('/', '__'))
-  // 已抓过(有 package.json)的跳过。
-  if (existsSync(join(dir, 'package.json'))) {
-    console.log(`- ${repo}: 已抓取,跳过`)
-    continue
-  }
-  // 阶段 1:package.json(main → master)
-  let branch = 'main'
-  let pkg = curl(`https://cdn.jsdelivr.net/gh/${repo}@${branch}/package.json`)
-  if (pkg === null) {
-    branch = 'master'
-    pkg = curl(`https://cdn.jsdelivr.net/gh/${repo}@${branch}/package.json`)
-  }
-  if (pkg === null) {
-    console.log(`✗ ${repo}: package.json 两个分支都取不到`)
-    misses += 1
-    continue
-  }
-  save(repo, 'package.json', branch, pkg)
-  fetched += 1
+function git(args, options = {}) {
+  return spawnSync('git', args, {
+    cwd: options.cwd,
+    encoding: 'utf8',
+    windowsHide: true,
+    env: {
+      ...process.env,
+      GIT_TERMINAL_PROMPT: '0',
+      GIT_LFS_SKIP_SMUDGE: '1',
+    },
+  })
+}
 
-  // 阶段 2:从 manifest 解析入口 + 常见兜底
-  const candidates = ['cordis.patch.yml', 'README.md']
+const sources = []
+for (const repository of repositories) {
+  const destination = destinationFor(repository)
+  if (existsSync(destination)) {
+    try {
+      const validation = validateRepositoryTree(destination)
+      const revision = git(['rev-parse', 'HEAD'], { cwd: destination })
+      if (revision.status !== 0) throw new Error(revision.stderr.trim() || 'git rev-parse failed')
+      sources.push({ repository, commit: revision.stdout.trim(), ...validation, reused: true })
+      console.log(`- ${repository}: validated existing clone (${validation.sourceFiles} source files)`)
+    } catch (error) {
+      console.error(`✗ ${repository}: existing clone invalid: ${error?.message ?? error}`)
+    }
+    continue
+  }
+
+  const partial = `${destination}.partial-${process.pid}-${Math.random().toString(36).slice(2)}`
   try {
-    const parsed = JSON.parse(pkg)
-    if (typeof parsed.main === 'string') candidates.push(parsed.main)
-    const exp = parsed.exports
-    if (exp && typeof exp === 'object') {
-      for (const v of Object.values(exp)) {
-        if (typeof v === 'string') candidates.push(v)
-        else if (v && typeof v === 'object' && typeof v.default === 'string') candidates.push(v.default)
-      }
-    }
-  } catch { /* 忽略解析失败 */ }
-  candidates.push('plugin/index.js', 'plugin/index.ts', 'lib/index.js', 'src/index.ts', 'src/index.js')
-
-  const seen = new Set()
-  for (let raw of candidates) {
-    if (seen.has(raw)) continue
-    seen.add(raw)
-    if (raw.startsWith('./')) raw = raw.slice(2)
-    if (!/\.(js|ts|yml|md|json)$/.test(raw)) continue
-    const content = curl(`https://cdn.jsdelivr.net/gh/${repo}@${branch}/${raw}`)
-    if (content !== null) {
-      save(repo, raw, branch, content)
-      fetched += 1
-    } else {
-      misses += 1
+    const repositoryUrl = `https://github.com/${repository}.git`
+    const cloned = git(cloneArgs(repositoryUrl, partial))
+    if (cloned.status !== 0) throw new Error(cloned.stderr.trim() || `git clone exited ${cloned.status}`)
+    const validation = validateRepositoryTree(partial)
+    const revision = git(['rev-parse', 'HEAD'], { cwd: partial })
+    if (revision.status !== 0) throw new Error(revision.stderr.trim() || 'git rev-parse failed')
+    renameSync(partial, destination)
+    sources.push({ repository, commit: revision.stdout.trim(), ...validation, reused: false })
+    console.log(`✓ ${repository}@${revision.stdout.trim().slice(0, 12)} (${validation.sourceFiles} source files)`)
+  } catch (error) {
+    console.error(`✗ ${repository}: ${error?.message ?? error}`)
+  } finally {
+    if (existsSync(partial)) {
+      assertDisposable(partial)
+      rmSync(partial, { recursive: true, force: true })
     }
   }
-  console.log(`✓ ${repo} (${branch}) 累计 fetched=${fetched}`)
 }
 
-console.log(`\n完成:fetched=${fetched} misses=${misses}`)
+const metadata = {
+  schemaVersion: 1,
+  generatedAt: new Date().toISOString(),
+  mode: 'full-shallow-clone',
+  installsExecuted: false,
+  root: ROOT,
+  requested: repositories.length,
+  accepted: sources.length,
+  sources,
+}
+writeFileSync(join(ROOT, '_sources.json'), `${JSON.stringify(metadata, null, 2)}\n`, 'utf8')
+console.log(`\nCorpus ready: accepted=${sources.length}/${repositories.length} root=${ROOT}`)
+if (sources.length === 0) process.exitCode = 1

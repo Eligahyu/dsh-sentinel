@@ -67,7 +67,7 @@ export function toSarif(report, opts = {}) {
       properties: {
         severity: f.severity,
         confidence: f.confidence ?? 'medium',
-        dshFingerprint: fingerprintOf(f),
+        dshFingerprint: f.fingerprint ?? fingerprintOf(f),
         ...(f.flow ? { flow: f.flow } : {}),
         ...(f.flowSteps ? { flowSteps: f.flowSteps } : {}),
         ...(f.source?.name ? { source: f.source.name } : {}),

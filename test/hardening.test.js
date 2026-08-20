@@ -648,7 +648,7 @@ test('buildReport 透传 evidence 并附加稳定 fingerprint(P1-6 闭环)', asy
   }
   const report = buildReport(parts)
   const f = report.findings[0]
-  assert.equal(f.fingerprint, fingerprintOf({ ruleId: 'SEN-AGENT-001', file: 'a.js', source: { name: 'args.command' }, sink: { callee: 'exec' } }))
+  assert.equal(f.fingerprint, fingerprintOf({ ruleId: 'SEN-AGENT-001', file: 'a.js', snippet: 's', source: { name: 'args.command' }, sink: { callee: 'exec' } }))
   assert.deepEqual(f.flowSteps, ['args.command', 'exec'])
   assert.equal(f.functionName, 'execute')
   assert.equal(f.toolName, 'danger-tool')

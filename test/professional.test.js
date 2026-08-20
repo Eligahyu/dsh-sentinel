@@ -10,6 +10,8 @@ import { join, dirname } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { scan, scanProfile, VERSION, semanticScan } from '../engine/index.js'
+import { FindingCollector, applyRule } from '../engine/scanner.js'
+import { RULES } from '../engine/rules.js'
 import { resolveInside, isInsideRoot, PathEscapeError } from '../engine/path-safety.js'
 import { redactSecrets } from '../engine/redact.js'
 import { main } from '../bin/sentinel.mjs'
@@ -149,6 +151,7 @@ test('入口契约必须同时具备 name 与 apply', async () => {
     await mk("module.exports = { name: 'x', apply() {} }\n", false)               // CJS 双键
     await mk("exports.default = { name: 'x', apply() {} }\n", false)              // CJS default 双键
     await mk("export const name = 'x'\nexport function apply() {}\n", false)      // ESM 双导出
+    await mk("export const name = 'x'\nexport async function apply() {}\n", false) // async ESM 双导出
     await mk("export default { name: 'x', apply(ctx) {} }\n", false)              // default 对象
   } finally {
     rmSync(tmp, { recursive: true, force: true })
@@ -353,6 +356,60 @@ ctx.tools.register(defineTool({
   assert.ok(f.some((x) => x.ruleId === 'SEN-AGENT-005'), '投毒短语必须命中')
 })
 
+test('低置信度注释证据降权，且注释不能触发凭据外传', async () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'prof-comments-'))
+  try {
+    writeFileSync(join(tmp, 'package.json'), JSON.stringify({
+      name: 'comments', version: '0.0.1', license: 'MIT', description: 'd',
+      main: 'index.js', dsh: { bundle: { patch: './cordis.patch.yml' } },
+    }))
+    writeFileSync(join(tmp, 'cordis.patch.yml'), "- insert:\n    - id: t\n      name: 'comments'\n")
+    writeFileSync(join(tmp, 'index.js'), `export const name = 'comments'
+export function apply() {}
+/** A defensive note about an SSRF-plus-exfiltration surface. */
+const apiKey = process.env.OPENAI_API_KEY
+`)
+    const content = `/** A defensive note about an SSRF-plus-exfiltration surface. */
+const apiKey = process.env.OPENAI_API_KEY
+`
+    writeFileSync(join(tmp, 'index.js'), `export const name = 'comments'
+export function apply() {}
+${content}`)
+    const report = await scan(tmp)
+    const poisoning = report.findings.find((finding) => finding.id === 'SEN-AGENT-005')
+    assert.equal(poisoning?.confidence, 'low')
+    assert.equal(report.findings.some((finding) => finding.id === 'SEN-EXFIL-002'), false)
+    const exfilRule = RULES.find((rule) => rule.id === 'SEN-EXFIL-002')
+    assert.equal(applyRule(exfilRule, 'index.js', content).total, 0)
+
+    const collector = new FindingCollector()
+    collector.addSemantic(semanticScan('/** exfiltrate data */\n', 'index.js'), 'index.js')
+    collector.finalizeFile('index.js')
+    assert.equal(collector.stats().rawScore, 3, 'low-confidence medium evidence scores as low')
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
+test('特殊用途和私有 IPv4 地址不是公网硬编码 IP', async () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'prof-reserved-ip-'))
+  try {
+    writeFileSync(join(tmp, 'package.json'), JSON.stringify({
+      name: 'reserved-ip', version: '0.0.1', license: 'MIT', description: 'd',
+      main: 'index.js', dsh: { bundle: { patch: './cordis.patch.yml' } },
+    }))
+    writeFileSync(join(tmp, 'cordis.patch.yml'), "- insert:\n    - id: t\n      name: 'reserved-ip'\n")
+    writeFileSync(join(tmp, 'index.js'), `export const name = 'reserved-ip'
+export function apply() {}
+const blocked = ['100.64.0.1', '169.254.0.1', '192.0.0.1', '198.18.0.1', '224.0.0.1']
+`)
+    const report = await scan(tmp)
+    assert.equal(report.findings.some((finding) => finding.id === 'SEN-NET-002'), false)
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
 test('SEN-AGENT-006:能力不匹配证据', async () => {
   const src = `
 ctx.tools.register(defineTool({
@@ -555,6 +612,32 @@ test('fingerprint 稳定:行号变化不产生新指纹', async () => {
   assert.equal(fingerprintOf(a), fingerprintOf(b))
   const c = { ruleId: 'SEN-EXEC-001', file: 'src/b.js', line: 10, source: { name: 'args.x' }, sink: { callee: 'exec' } }
   assert.notEqual(fingerprintOf(a), fingerprintOf(c))
+})
+
+test('fingerprint distinguishes independent call sites and remains stable when lines move', async () => {
+  const { attachFingerprints } = await import('../engine/report/fingerprint.js')
+  const report = {
+    findings: [
+      { id: 'SEN-EXEC-002', file: 'src/a.js', line: 10, snippet: 'const child = spawn(command, args)' },
+      { id: 'SEN-EXEC-002', file: 'src/a.js', line: 20, snippet: 'spawn(command, args).unref()' },
+      { id: 'SEN-EXEC-002', file: 'src/a.js', line: 30, snippet: 'spawn(command, args).unref()' },
+    ],
+  }
+  attachFingerprints(report)
+  assert.equal(new Set(report.findings.map((finding) => finding.fingerprint)).size, 3)
+
+  const shifted = {
+    findings: [
+      { id: 'SEN-EXEC-002', file: 'src/a.js', line: 110, snippet: 'const child = spawn(command, args)' },
+      { id: 'SEN-EXEC-002', file: 'src/a.js', line: 120, snippet: 'spawn(command, args).unref()' },
+      { id: 'SEN-EXEC-002', file: 'src/a.js', line: 130, snippet: 'spawn(command, args).unref()' },
+    ],
+  }
+  attachFingerprints(shifted)
+  assert.deepEqual(
+    shifted.findings.map((finding) => finding.fingerprint),
+    report.findings.map((finding) => finding.fingerprint),
+  )
 })
 
 test('SARIF 输出:规则与结果齐全', async () => {

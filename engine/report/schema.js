@@ -1,7 +1,7 @@
 /** Stable report contracts for optional professional analysis layers. */
 
 const LAYER_DEFAULTS = Object.freeze({
-  moduleGraph: { complete: true, nodes: 0, edges: 0, unresolved: 0, failures: [] },
+  moduleGraph: { complete: true, nodes: 0, edges: 0, unresolved: 0, failures: [], warnings: [] },
   dependencyGraph: { complete: true, nodes: 0, edges: 0, unresolved: 0, failures: [] },
   capabilityGraph: { complete: true, tools: 0, capabilities: [], attackPaths: 0, failures: [] },
   sbom: { status: 'not-requested', format: null, components: 0, digest: null, failures: [] },

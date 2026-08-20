@@ -33,7 +33,7 @@ test('P0-1:350 low + 最后 1 条 critical——critical 计入评分且出现�
   try {
     for (let f = 0; f < 35; f += 1) {
       const lines = []
-      for (let i = 0; i < 10; i += 1) lines.push(`const ip${i} = "${200 + f}.${i}.${i}.${200 + f}"`)
+      for (let i = 0; i < 10; i += 1) lines.push(`const ip${i} = "8.${f}.${i}.${100 + i}"`)
       writeFileSync(join(tmp, `f${f}.js`), lines.join('\n') + '\n')
     }
     writeFileSync(join(tmp, 'evil.js'), "exec('rm -rf $HOME')\n")
@@ -288,6 +288,60 @@ test('test 文件未被 reachable → 仍降权', async () => {
     assert.ok(f)
     assert.equal(report.summary.verdict, 'review', '不可达 test 降权:critical→high(20)')
     assert.equal(report.summary.score, 20)
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
+test('大量不可达测试夹具不能单独把插件堆成 dangerous', async () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'v2-test-cap-'))
+  try {
+    mkdirSync(join(tmp, 'src'), { recursive: true })
+    mkdirSync(join(tmp, 'tests'), { recursive: true })
+    writeFileSync(join(tmp, 'package.json'), JSON.stringify({
+      name: 'test-cap', version: '0.0.1', main: 'src/index.js', license: 'MIT', description: 'd',
+      dsh: { bundle: { patch: './cordis.patch.yml' } },
+    }))
+    writeFileSync(join(tmp, 'cordis.patch.yml'), "- insert:\n    - id: t\n      name: 'test-cap'\n")
+    writeFileSync(join(tmp, 'src', 'index.js'), "export const name = 'x'\nexport function apply() {}\n")
+    for (let i = 0; i < 8; i += 1) {
+      writeFileSync(join(tmp, 'tests', `fixture-${i}.test.js`), "exec('rm -rf $HOME')\n")
+    }
+
+    const report = await scan(tmp)
+    assert.equal(report.summary.byContext.test, 8)
+    assert.equal(report.summary.score, 20, '不可达测试证据保留，但 test 上下文风险贡献封顶 20')
+    assert.equal(report.summary.verdict, 'review')
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
+test('eval and release helpers are development context, but install scripts stay production context', async () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'v2-development-context-'))
+  try {
+    mkdirSync(join(tmp, 'src'), { recursive: true })
+    mkdirSync(join(tmp, 'evals'), { recursive: true })
+    mkdirSync(join(tmp, 'scripts'), { recursive: true })
+    writeFileSync(join(tmp, 'package.json'), JSON.stringify({
+      name: 'dev-context', version: '0.0.1', main: 'src/index.js', license: 'MIT', description: 'd',
+      dsh: { bundle: { patch: './cordis.patch.yml' } },
+    }))
+    writeFileSync(join(tmp, 'cordis.patch.yml'), "- insert:\n    - id: t\n      name: 'dev-context'\n")
+    writeFileSync(join(tmp, 'src', 'index.js'), "export const name = 'x'\nexport function apply() {}\n")
+    writeFileSync(join(tmp, 'evals', 'run.js'), "exec('rm -rf $HOME')\n")
+    writeFileSync(join(tmp, 'scripts', 'release.mjs'), "exec('rm -rf $HOME')\n")
+    writeFileSync(join(tmp, 'scripts', 'install.js'), "exec('rm -rf $HOME')\n")
+
+    const report = await scan(tmp)
+    const byFile = Object.fromEntries(report.findings.filter((finding) => finding.id === 'SEN-FS-001').map((finding) => [finding.file, finding]))
+    assert.equal(byFile['evals/run.js'].developmentFile, true)
+    assert.equal(byFile['evals/run.js'].testFile, false)
+    assert.equal(byFile['scripts/release.mjs'].developmentFile, true)
+    assert.equal(byFile['scripts/install.js'].developmentFile, undefined)
+    assert.equal(report.summary.byContext.development, 2)
+    assert.equal(report.summary.byContext.source, 1)
+    assert.equal(report.summary.score, 70, 'development 上下文封顶 20，install critical 仍按运行时全额 50')
   } finally {
     rmSync(tmp, { recursive: true, force: true })
   }

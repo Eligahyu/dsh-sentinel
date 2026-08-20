@@ -12,6 +12,14 @@ export function normalizeFile(file) {
   return String(file ?? '').replace(/\\/g, '/').toLowerCase()
 }
 
+/** Stable code anchor: whitespace-only formatting and line movement do not change it. */
+export function normalizeFindingAnchor(finding) {
+  return String(finding?.snippet ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 240)
+}
+
 /** finding → 稳定指纹。兼容原始形态(ruleId)与报告形态(id)。 */
 export function fingerprintOf(finding) {
   const sink = typeof finding.sink?.callee === 'string' ? finding.sink.callee : ''
@@ -21,14 +29,22 @@ export function fingerprintOf(finding) {
     normalizeFile(finding.file),
     sink,
     source,
+    normalizeFindingAnchor(finding),
   ].join('|')
   return createHash('sha256').update(key).digest('hex')
 }
 
 /** 给报告内每个 finding 附加 fingerprint(幂等)。 */
 export function attachFingerprints(report) {
+  const occurrences = new Map()
   for (const f of report.findings ?? []) {
-    if (!f.fingerprint) f.fingerprint = fingerprintOf(f)
+    if (f.fingerprint) continue
+    const base = fingerprintOf(f)
+    const occurrence = (occurrences.get(base) ?? 0) + 1
+    occurrences.set(base, occurrence)
+    f.fingerprint = occurrence === 1
+      ? base
+      : createHash('sha256').update(`${base}|occurrence:${occurrence}`).digest('hex')
   }
   return report
 }

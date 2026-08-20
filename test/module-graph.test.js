@@ -78,3 +78,90 @@ test('scan report exposes the module graph analysis layer', async () => {
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+test('typed TypeScript imports use a static fallback and resolve .js specifiers to .ts', () => {
+  const root = fixture()
+  try {
+    writeFileSync(join(root, 'plugin', 'typed.ts'), [
+      "import { run } from '../lib/typed-runner.js'",
+      'const command: string = "safe"',
+      'run(command)',
+    ].join('\n'))
+    writeFileSync(join(root, 'lib', 'typed-runner.ts'), 'export function run(value: string): void {}\n')
+
+    const graph = buildModuleGraph(root, ['plugin/typed.ts'])
+
+    assert.equal(graph.complete, true)
+    assert.ok(graph.nodes.some((node) => node.path === 'plugin/typed.ts' && node.parser === 'unparsed'))
+    assert.ok(graph.edges.some((edge) => edge.from === 'plugin/typed.ts' && edge.to === 'lib/typed-runner.ts'))
+    assert.ok(graph.warnings.some((warning) => warning.path === 'plugin/typed.ts' && warning.reason === 'parser-unparsed'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('.mts and .cts files are represented instead of silently skipped', () => {
+  const root = fixture()
+  try {
+    writeFileSync(join(root, 'plugin', 'entry.mts'), 'export const value: number = 1\n')
+    writeFileSync(join(root, 'plugin', 'legacy.cts'), 'export const value: number = 2\n')
+
+    const graph = buildModuleGraph(root, ['plugin/entry.mts', 'plugin/legacy.cts'])
+
+    assert.deepEqual(graph.nodes.map((node) => node.path).sort(), ['plugin/entry.mts', 'plugin/legacy.cts'])
+    assert.equal(graph.complete, true)
+    assert.equal(graph.warnings.filter((warning) => warning.reason === 'parser-unparsed').length, 2)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('test-only missing build imports are warnings, not hidden failures', () => {
+  const root = fixture()
+  try {
+    mkdirSync(join(root, 'test'), { recursive: true })
+    writeFileSync(join(root, 'test', 'entry.test.js'), "import '../dist/not-built.js'\n")
+
+    const graph = buildModuleGraph(root, ['test/entry.test.js'])
+
+    assert.equal(graph.complete, true)
+    assert.equal(graph.failures.length, 0)
+    assert.ok(graph.warnings.some((warning) => warning.path === 'test/entry.test.js' && warning.reason === 'missing-file'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('declaration files and development scripts do not make runtime analysis incomplete', () => {
+  const root = fixture()
+  try {
+    mkdirSync(join(root, 'lib', 'types'), { recursive: true })
+    mkdirSync(join(root, 'scripts'), { recursive: true })
+    writeFileSync(join(root, 'lib', 'types', 'index.d.ts'), "export type { Runner } from './runner.js'\n")
+    writeFileSync(join(root, 'scripts', 'live-e2e.mjs'), "import '../lib/not-built.js'\n")
+
+    const graph = buildModuleGraph(root, ['lib/types/index.d.ts', 'scripts/live-e2e.mjs'])
+
+    assert.equal(graph.complete, true)
+    assert.equal(graph.failures.length, 0)
+    assert.ok(graph.warnings.some((warning) => warning.path === 'lib/types/index.d.ts' && warning.reason === 'missing-file'))
+    assert.ok(graph.warnings.some((warning) => warning.path === 'scripts/live-e2e.mjs' && warning.reason === 'missing-file'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('test paths do not downgrade containment failures', () => {
+  const root = fixture()
+  try {
+    mkdirSync(join(root, 'test'), { recursive: true })
+    writeFileSync(join(root, 'test', 'escape.test.js'), "import '../../outside.js'\n")
+
+    const graph = buildModuleGraph(root, ['test/escape.test.js'])
+
+    assert.equal(graph.complete, false)
+    assert.ok(graph.failures.some((failure) => failure.reason === 'path-escape'))
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})

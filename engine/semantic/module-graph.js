@@ -13,13 +13,17 @@ import { dirname, extname, join, relative, resolve } from 'node:path'
 import { parseJavaScript, walk, staticString } from './ast.js'
 import { resolveInside } from '../path-safety.js'
 
-const SOURCE_EXTENSIONS = ['.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx']
+const SOURCE_EXTENSIONS = ['.js', '.mjs', '.cjs', '.ts', '.tsx', '.mts', '.cts', '.jsx']
 
 /** TypeScript 变体:acorn 无法解析,属能力边界(降级而非完整性失败)。 */
 const TS_EXT = /\.(?:tsx?|mts|cts|d\.ts)$/i
 
 /** 测试路径:测试文件引用构建产物/外部脚本是开发态常态,其模块图缺口降级为警告。 */
 const TEST_PATH = /(^|[\\/])(?:test|tests|__tests__|spec|e2e)([\\/]|\.)|\.(?:spec|test|e2e)\./i
+
+/** Type declarations and explicit development runners do not participate in runtime reachability. */
+const DECLARATION_PATH = /\.d\.(?:ts|mts|cts)$/i
+const DEVELOPMENT_RUNNER_PATH = /(^|[\\/])scripts[\\/][^\\/]*(?:e2e|release|bench|eval|check|dev)[^\\/]*$/i
 
 function relPath(root, abs) {
   return relative(root, abs).replace(/\\/g, '/')
@@ -120,6 +124,81 @@ function importSpecifiers(ast) {
   return out
 }
 
+/** Remove comments without changing offsets or quoted import specifiers. */
+function withoutComments(content) {
+  let out = ''
+  let state = 'code'
+  let escaped = false
+  for (let i = 0; i < content.length; i += 1) {
+    const ch = content[i]
+    const next = content[i + 1]
+    if (state === 'line-comment') {
+      if (ch === '\n' || ch === '\r') {
+        state = 'code'
+        out += ch
+      } else out += ' '
+      continue
+    }
+    if (state === 'block-comment') {
+      if (ch === '*' && next === '/') {
+        out += '  '
+        i += 1
+        state = 'code'
+      } else out += ch === '\n' || ch === '\r' ? ch : ' '
+      continue
+    }
+    if (state === 'single' || state === 'double' || state === 'template') {
+      out += ch
+      if (escaped) escaped = false
+      else if (ch === '\\') escaped = true
+      else if ((state === 'single' && ch === "'") || (state === 'double' && ch === '"') || (state === 'template' && ch === '`')) state = 'code'
+      continue
+    }
+    if (ch === '/' && next === '/') {
+      out += '  '
+      i += 1
+      state = 'line-comment'
+    } else if (ch === '/' && next === '*') {
+      out += '  '
+      i += 1
+      state = 'block-comment'
+    } else {
+      out += ch
+      if (ch === "'") state = 'single'
+      else if (ch === '"') state = 'double'
+      else if (ch === '`') state = 'template'
+    }
+  }
+  return out
+}
+
+/** Conservative ESM import/export recovery for TypeScript Acorn cannot parse. */
+function fallbackImportSpecifiers(content) {
+  const source = withoutComments(content)
+  const found = []
+  const patterns = [
+    /(?:^|[;\r\n])\s*import\s*(['"])([^'"\r\n]+)\1/g,
+    /(?:^|[;\r\n])\s*(?:import|export)\s+(?:type\s+)?[^;]{0,2000}?\bfrom\s*(['"])([^'"\r\n]+)\1/g,
+  ]
+  for (const pattern of patterns) {
+    let match
+    while ((match = pattern.exec(source)) !== null) {
+      const specifier = match[2]
+      const start = match.index + match[0].lastIndexOf(specifier)
+      found.push({ specifier, start })
+    }
+  }
+  const seen = new Set()
+  return found
+    .sort((a, b) => a.start - b.start)
+    .filter((item) => {
+      const key = `${item.start}|${item.specifier}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+}
+
 function nodeFor(root, abs, content, ast) {
   return {
     path: relPath(root, abs),
@@ -134,7 +213,7 @@ function nodeFor(root, abs, content, ast) {
  * Build a bounded module graph from seed files and their static imports.
  * @param {string} root scan root
  * @param {string[]} files relative seed paths
- * @returns {{nodes: object[], edges: object[], unresolved: object[], failures: object[], complete: boolean}}
+ * @returns {{nodes: object[], edges: object[], unresolved: object[], failures: object[], warnings: object[], complete: boolean}}
  */
 export function buildModuleGraph(root, files = []) {
   const rootAbs = resolve(root)
@@ -142,6 +221,7 @@ export function buildModuleGraph(root, files = []) {
   const edges = []
   const unresolved = []
   const failures = []
+  const warnings = []
   const queue = [...new Set(files.map((f) => String(f).replace(/\\/g, '/')))]
   const seen = new Set()
 
@@ -151,45 +231,50 @@ export function buildModuleGraph(root, files = []) {
     seen.add(rel)
     // 非 JS/TS 源码(如 .ps1/.py/.json 误入种子)不是模块图职责范围:跳过而非记 failure
     if (!SOURCE_EXTENSIONS.some((ext) => rel.toLowerCase().endsWith(ext))) continue
-    const isTestFile = TEST_PATH.test(rel)
-    const pushFailure = (f) => { if (!isTestFile) failures.push(f) } // 测试文件缺口降级
+    const downgradeMissingImport = TEST_PATH.test(rel) || DECLARATION_PATH.test(rel) || DEVELOPMENT_RUNNER_PATH.test(rel)
     let abs
     try {
       abs = resolveInside(rootAbs, rel)
     } catch (error) {
-      pushFailure({ path: rel, reason: 'path-escape', detail: error?.message })
+      failures.push({ path: rel, reason: 'path-escape', detail: error?.message })
       continue
     }
     if (!existsSync(abs) || !statSync(abs).isFile()) {
-      pushFailure({ path: rel, reason: 'missing-file' })
+      failures.push({ path: rel, reason: 'missing-file' })
       continue
     }
     let content
     try {
       content = readFileSync(abs, 'utf8')
     } catch (error) {
-      pushFailure({ path: rel, reason: 'read-error', detail: error?.code ?? error?.message })
+      failures.push({ path: rel, reason: 'read-error', detail: error?.code ?? error?.message })
       continue
     }
     const ast = parseJavaScript(content)
     nodes.push(nodeFor(rootAbs, abs, content, ast))
-    if (!ast) {
+    let imports
+    if (ast) imports = importSpecifiers(ast)
+    else {
       // TS/TSX/DTS 是 acorn 的能力边界:节点已带 parser:'unparsed' 降级标记,
       // 不记 failures(与语义引擎"AST 失败走兜底、不判完整性失败"的策略一致)。
       // 只有真正的 JS parse-error 才构成完整性信号。
       if (!TS_EXT.test(rel)) {
-        pushFailure({ path: rel, reason: 'parse-error' })
+        failures.push({ path: rel, reason: 'parse-error' })
+        continue
       }
-      continue
+      imports = fallbackImportSpecifiers(content)
+      warnings.push({ path: rel, reason: 'parser-unparsed', fallback: 'static-imports', importsRecovered: imports.length })
     }
-    for (const item of importSpecifiers(ast)) {
+    for (const item of imports) {
       const result = resolveModuleSpecifier(rootAbs, rel, item.specifier)
       if (result.kind === 'external') {
         unresolved.push({ from: rel, specifier: item.specifier, external: true, start: item.start })
         continue
       }
       if (result.kind === 'failure') {
-        pushFailure({ path: rel, specifier: item.specifier, reason: result.reason })
+        const issue = { path: rel, specifier: item.specifier, reason: result.reason }
+        if (downgradeMissingImport && result.reason === 'missing-file') warnings.push(issue)
+        else failures.push(issue)
         continue
       }
       const target = relPath(rootAbs, result.abs)
@@ -203,6 +288,7 @@ export function buildModuleGraph(root, files = []) {
     edges,
     unresolved,
     failures,
+    warnings,
     complete: failures.length === 0,
   }
 }
