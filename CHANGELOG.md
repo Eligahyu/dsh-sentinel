@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.3 (2026-08) — 文档同步
+
+- README / roadmap / submission-awesome 同步至 v0.4.2 状态:151 项测试、32 项 benchmark 语料(edge 16 项)、standalone 文案(移除 zero-dependency)
+- docs/example-report.json 按当前引擎重新生成
+- 无代码/规则变更;版本 bump 仅为让 npm 包内 README 与仓库一致
+
 ## 0.4.2 (2026-08) — Final 3 Blockers Fix
 
 按 `dsh-sentinel-v0.4-final-3-blockers-fix.md` 完成最后 3 个发布阻塞项修复:
