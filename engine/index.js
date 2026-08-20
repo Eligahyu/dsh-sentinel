@@ -23,6 +23,7 @@ import { RULES, CODE_EXT } from './rules.js'
 import { semanticScan } from './semantic/index.js'
 import { resolveInside } from './path-safety.js'
 import { buildModuleGraph } from './semantic/module-graph.js'
+import { analyzeCrossFileTaint } from './semantic/cross-file-taint.js'
 
 export { VERSION } from './version.js'
 export { RULES } from './rules.js'
@@ -128,6 +129,8 @@ export async function scan(target, opts = {}) {
   let ignored = []
   let hardSkipped = []
   let analysisLayers = { moduleGraph: { nodes: [], edges: [], unresolved: [], failures: [], complete: true } }
+  let attackChains = []
+  let coverageSkips = []
 
   if (existsSync(abs) && statSync(abs).isFile()) {
     const size = statSync(abs).size
@@ -209,7 +212,17 @@ export async function scan(target, opts = {}) {
     largestFiles = tree.largestFiles
     ignored = tree.ignored
     hardSkipped = tree.hardSkipped
-    analysisLayers = { moduleGraph: tree.moduleGraph }
+    const crossFile = analyzeCrossFileTaint(abs, tree.moduleGraph)
+    const crossCollector = new FindingCollector({ maxFindings: limits.maxFindings, testReachableFiles })
+    crossCollector.addSemantic(crossFile.findings, 'cross-file')
+    crossCollector.finalizeFile('cross-file')
+    findings = [...findings, ...crossCollector.findings()]
+    findingsTotal += crossFile.findings.length
+    allStats = mergeStats(allStats, crossCollector.stats())
+    attackChains = crossFile.attackChains
+    coverageSkips = [...(tree.coverageSkips ?? []), ...crossFile.failures]
+    scanComplete = scanComplete && crossFile.complete
+    analysisLayers = { moduleGraph: { ...tree.moduleGraph, crossFile } }
     // Manifest findings 并入统计与缓冲(路径 remap 到相对 target)。
     const bundleCollector = new FindingCollector({ maxFindings: limits.maxFindings, testReachableFiles })
     const remapped = bundle.findings.map((f) => ({ ...f, file: relative(abs, join(bundleRoot, f.file)) }))
@@ -244,6 +257,8 @@ export async function scan(target, opts = {}) {
       pluginsSkipped: [],
       scanMs: Date.now() - started,
       analysisLayers,
+      attackChains,
+      coverageSkips,
     },
     limits.maxFindings,
   )

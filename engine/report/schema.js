@@ -34,6 +34,7 @@ export function incompleteLayerReasons(layers) {
   const label = (name) => name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)
   for (const [name, layer] of Object.entries(layers ?? {})) {
     if (layer?.complete === false) reasons.push(label(name))
+    if (layer?.crossFile?.complete === false) reasons.push(`${label(name)}-cross-file`)
     if (Array.isArray(layer?.failures) && layer.failures.length > 0) {
       if (!reasons.includes(label(name))) reasons.push(label(name))
     }
