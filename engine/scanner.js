@@ -26,6 +26,7 @@ import { readdirSync, readFileSync, lstatSync, statSync, openSync, readSync, clo
 import { join, relative, sep, dirname } from 'node:path'
 import { createHash } from 'node:crypto'
 import { RULES, CODE_EXT, SEVERITY_ORDER, CATEGORIES, severityWeight } from './rules.js'
+import { buildModuleGraph } from './semantic/module-graph.js'
 import { resolveInside, PathEscapeError } from './path-safety.js'
 import { isTestPath, TEST_SEVERITY_DOWNGRADE, OVERLAP_SUPPRESSION } from './report.js'
 import { semanticScan } from './semantic/index.js'
@@ -763,6 +764,10 @@ export async function scanTree(root, opts = {}) {
   }
 
   largest.sort((a, b) => b.bytes - a.bytes)
+  const graphSeeds = [...files, ...largeFiles]
+    .filter((f) => CODE_EXT.test(f.rel))
+    .map((f) => f.rel)
+  const moduleGraph = buildModuleGraph(root, graphSeeds)
   const readFailures = analysisFailures.filter((f) => f.stage === 'read').length
   const hashFailures = analysisFailures.filter((f) => f.stage === 'hash').length
   const binarySampleFailures = analysisFailures.filter((f) => f.stage === 'binary-sample').length
@@ -795,6 +800,7 @@ export async function scanTree(root, opts = {}) {
     ignored,
     languages,
     largestFiles: largest.slice(0, 5),
+    moduleGraph,
   }
 }
 

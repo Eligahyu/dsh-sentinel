@@ -68,6 +68,9 @@ export async function acquireNpmPackage(spec) {
         type: e.attestation?.type ?? '',
         issuer: e.attestation?.predicateType ?? '',
         digest: e.attestation?.subject?.[0]?.digest?.sha256 ?? '',
+        sourceRepository: e.attestation?.predicate?.invocation?.configSource?.uri ?? '',
+        sourceCommit: e.attestation?.predicate?.invocation?.configSource?.digest?.sha1 ?? '',
+        workflow: e.attestation?.predicate?.buildDefinition?.buildType ?? '',
       }))
     } else if (doc.attestations) {
       attestations = [{ type: 'present' }]

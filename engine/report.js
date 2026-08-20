@@ -18,6 +18,7 @@ import { SEVERITY_ORDER, CATEGORIES, severityWeight } from './rules.js'
 import { VERSION } from './version.js'
 import { redactSecrets } from './redact.js'
 import { attachFingerprints } from './report/fingerprint.js'
+import { incompleteLayerReasons, normalizeAnalysisLayers } from './report/schema.js'
 
 export const VERDICTS = Object.freeze({
   safe: { min: 0, max: 19, label: 'safe', emoji: '✅' },
@@ -99,6 +100,8 @@ export function suppressOverlaps(findings) {
  *   allStats(评分依据,来自 scanner FindingCollector)
  */
 export function buildReport(parts, maxFindings = 300) {
+  const analysisLayers = normalizeAnalysisLayers(parts.analysisLayers)
+  const layerIncompleteReasons = incompleteLayerReasons(analysisLayers)
   const counts = parts.allStats
     ? { bySeverity: { ...parts.allStats.bySeverity }, byCategory: { ...parts.allStats.byCategory } }
     : emptyCounts()
@@ -129,7 +132,7 @@ export function buildReport(parts, maxFindings = 300) {
 
   let verdict = verdictFor(score)
 
-  const scanComplete = parts.scanComplete !== false
+  const scanComplete = parts.scanComplete !== false && layerIncompleteReasons.length === 0
   const findingsTotal = parts.findingsTotal ?? total
 
   // 不完整扫描绝不能显示 clean:强制至少 review 并显式标记。
@@ -182,6 +185,10 @@ export function buildReport(parts, maxFindings = 300) {
         ...(f.endColumn ? { endColumn: f.endColumn } : {}),
         ...(f.ssrfTarget ? { ssrfTarget: true } : {}),
         ...(f.detail ? { detail: f.detail } : {}),
+        ...(f.crossFile ? { crossFile: true } : {}),
+        ...(f.modulePath ? { modulePath: f.modulePath } : {}),
+        ...(f.attackChainId ? { attackChainId: f.attackChainId } : {}),
+        ...(f.capabilities ? { capabilities: f.capabilities } : {}),
       }
     })
 
@@ -204,6 +211,10 @@ export function buildReport(parts, maxFindings = 300) {
       // 完整度
       scanComplete,
       incompleteScan: !scanComplete,
+      incompleteReasons: [
+        ...(parts.scanComplete === false ? ['scan'] : []),
+        ...layerIncompleteReasons,
+      ],
       filesDiscovered: parts.filesDiscovered ?? parts.filesScanned ?? 0,
       filesAnalyzed: parts.filesAnalyzed ?? parts.filesScanned ?? 0,
       findingsTotal,
@@ -241,6 +252,7 @@ export function buildReport(parts, maxFindings = 300) {
     },
     findings: capped,
     attackChains: parts.attackChains ?? [],
+    analysisLayers,
     ignored: parts.ignored ?? [],
     hardSkipped: parts.hardSkipped ?? [],
     policySkips: parts.policySkips ?? [],

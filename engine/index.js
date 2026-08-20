@@ -22,6 +22,10 @@ import { buildReport, verdictFor } from './report.js'
 import { RULES, CODE_EXT } from './rules.js'
 import { semanticScan } from './semantic/index.js'
 import { resolveInside } from './path-safety.js'
+import { buildModuleGraph } from './semantic/module-graph.js'
+import { analyzeCrossFileTaint } from './semantic/cross-file-taint.js'
+import { buildDependencyGraph } from './supplychain/dependency-graph.js'
+import { buildCapabilityGraph, evaluateCapabilityPolicy } from './semantic/capability-graph.js'
 
 export { VERSION } from './version.js'
 export { RULES } from './rules.js'
@@ -29,6 +33,7 @@ export { parsePatchRows, resolvePatchEntry } from './scanner.js'
 export { inspectBundle } from './manifest.js'
 export { buildReport, verdictFor } from './report.js'
 export { semanticScan } from './semantic/index.js'
+export { buildCapabilityGraph, evaluateCapabilityPolicy } from './semantic/capability-graph.js'
 export { auditPackageBeforeInstall, auditNpmSpec, auditVerdictFor } from './package/audit.js'
 export { loadConfig, mergeOverrides, DEFAULT_CONFIG } from './config.js'
 
@@ -126,6 +131,10 @@ export async function scan(target, opts = {}) {
   let allStats = emptyAllStats()
   let ignored = []
   let hardSkipped = []
+  let analysisLayers = { moduleGraph: { nodes: [], edges: [], unresolved: [], failures: [], complete: true } }
+  let attackChains = []
+  let coverageSkips = []
+  let dependencyGraph = null
 
   if (existsSync(abs) && statSync(abs).isFile()) {
     const size = statSync(abs).size
@@ -174,11 +183,15 @@ export async function scan(target, opts = {}) {
       }
       findings = collector.findings()
       allStats = collector.stats()
+      const moduleGraph = CODE_EXT.test(target)
+        ? buildModuleGraph(dirname(abs), [basename(abs)])
+        : { nodes: [], edges: [], unresolved: [], failures: [], complete: true }
       filesAnalyzed = 1
       filesDiscovered = 1
       largestFiles = [{ file: target, bytes: content.length }]
       const ext = target.includes('.') ? target.slice(target.lastIndexOf('.') + 1) : 'text'
       languages = { [ext]: 1 }
+      analysisLayers = { moduleGraph }
     }
   } else {
     // Manifest 检查先行:得到 runtime entries,用于 test 文件降权的 reachability 判断。
@@ -203,6 +216,23 @@ export async function scan(target, opts = {}) {
     largestFiles = tree.largestFiles
     ignored = tree.ignored
     hardSkipped = tree.hardSkipped
+    const crossFile = analyzeCrossFileTaint(abs, tree.moduleGraph)
+    const lockfileNames = ['package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock', 'bun.lock', 'bun.lockb']
+    const hasLockfile = lockfileNames.some((name) => existsSync(join(abs, name)))
+    dependencyGraph = hasLockfile ? buildDependencyGraph(abs) : null
+    const crossCollector = new FindingCollector({ maxFindings: limits.maxFindings, testReachableFiles })
+    crossCollector.addSemantic(crossFile.findings, 'cross-file')
+    crossCollector.finalizeFile('cross-file')
+    findings = [...findings, ...crossCollector.findings()]
+    findingsTotal += crossFile.findings.length
+    allStats = mergeStats(allStats, crossCollector.stats())
+    attackChains = crossFile.attackChains
+    coverageSkips = [...(tree.coverageSkips ?? []), ...crossFile.failures]
+    scanComplete = scanComplete && crossFile.complete && (dependencyGraph?.complete ?? true)
+    analysisLayers = {
+      moduleGraph: { ...tree.moduleGraph, crossFile },
+      ...(dependencyGraph ? { dependencyGraph } : {}),
+    }
     // Manifest findings 并入统计与缓冲(路径 remap 到相对 target)。
     const bundleCollector = new FindingCollector({ maxFindings: limits.maxFindings, testReachableFiles })
     const remapped = bundle.findings.map((f) => ({ ...f, file: relative(abs, join(bundleRoot, f.file)) }))
@@ -213,6 +243,22 @@ export async function scan(target, opts = {}) {
     allStats = mergeStats(allStats, bundleCollector.stats())
     manifest = bundle.manifest
   }
+
+  // Capability graph is derived from retained evidence; an optional policy can
+  // add explicit undeclared-capability findings without executing the plugin.
+  const capabilityGraph = buildCapabilityGraph(findings)
+  if (opts.capabilityPolicy && typeof opts.capabilityPolicy === 'object') {
+    const policyFindings = evaluateCapabilityPolicy(capabilityGraph, opts.capabilityPolicy)
+    if (policyFindings.length > 0) {
+      const policyCollector = new FindingCollector({ maxFindings: limits.maxFindings })
+      policyCollector.addSemantic(policyFindings, 'capability-policy')
+      policyCollector.finalizeFile('capability-policy')
+      findings = [...findings, ...policyCollector.findings()]
+      findingsTotal += policyFindings.length
+      allStats = mergeStats(allStats, policyCollector.stats())
+    }
+  }
+  analysisLayers = { ...analysisLayers, capabilityGraph }
 
   return buildReport(
     {
@@ -236,6 +282,17 @@ export async function scan(target, opts = {}) {
       pluginsScanned: [],
       pluginsSkipped: [],
       scanMs: Date.now() - started,
+      analysisLayers,
+      attackChains,
+      coverageSkips,
+      supplyChain: dependencyGraph ? {
+        dependencyGraph: {
+          lockfile: dependencyGraph.lockfile,
+          nodes: dependencyGraph.nodes.length,
+          edges: dependencyGraph.edges.length,
+          complete: dependencyGraph.complete,
+        },
+      } : {},
     },
     limits.maxFindings,
   )

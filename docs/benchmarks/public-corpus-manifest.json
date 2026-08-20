@@ -1,0 +1,2554 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Public DSH plugin corpus for reproducible scanner regression and benchmark runs.",
+  "policy": "Only public source metadata and file hashes are committed; downloaded source stays in ignored scratch/corpus.",
+  "sourceCount": 52,
+  "fileCount": 405,
+  "sources": [
+    {
+      "repository": "https://github.com/AX1202/ax-feishu-bridge",
+      "ref": {
+        "branch": "main",
+        "commit": "479de00b82eda3a3458bff45bb395bd674df90d7"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 16638,
+          "sha256": "d432e80129af5e0e61088ac5069a83d8c1cea04f2ac096a84121d9c45ac77d9b"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 530,
+          "sha256": "0aec4104b3832c46e189e5e354e0f066c849ef3026f91b43890bccec97b105b7"
+        },
+        {
+          "path": "lib/adapters/harness/index.js",
+          "bytes": 91,
+          "sha256": "d562d72f87731aa7006685a3e4319e08cdc77f9e03a2973277300cbf42981271"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 74,
+          "sha256": "0d994b2cd1b7a4471df71557dab667a5eba21c9095bdd4c0682550026866e528"
+        },
+        {
+          "path": "package.json",
+          "bytes": 2002,
+          "sha256": "d4a965cff26ea4b7b676e2f428c89e47d72795d374c0978bf55ab2c03a32ba8d"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 77,
+          "sha256": "c85f254c4b8215af958914a6200c2bad3aaad1502336da4e04e66924c6157754"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 77,
+          "sha256": "15749629f7d61773645992081ab54a3e4a8a67410cf616def7b103a856a30464"
+        },
+        {
+          "path": "src/adapters/pi/index.ts",
+          "bytes": 27696,
+          "sha256": "15fdcac68e6898beb9df7c5c82a6eabe1a0c0d1ec118b0cdc8cf56fc1b958736"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 74,
+          "sha256": "ee225fde4e47342571896a15f5c626b7246ea951d465839af6e8408916170267"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 74,
+          "sha256": "eb6f40b4387cfd60159cb8732f878dd9d98878f94e40b785dc13497bf73d2667"
+        }
+      ],
+      "fileCount": 10
+    },
+    {
+      "repository": "https://github.com/Anionex/dsh-turn-rewind",
+      "ref": {
+        "branch": "main",
+        "commit": "b1b85f18aaaaf71d76c84613429ce04d71f69620"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 10745,
+          "sha256": "d7e017e05997c33c7d6cd73b719c705ecb04bdc46ee3d6b4b9f1ea3f9b4bbbc7"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 141,
+          "sha256": "81f9f6a91c1144101fed653c0b24d01795225d9ce23a3054c02e3a2c8fbda80c"
+        },
+        {
+          "path": "lib/client.js",
+          "bytes": 31397,
+          "sha256": "d817e22fe516f300735cd2aa2fba5afa84d6e4944e5f2ec3f12a3e738629aaad"
+        },
+        {
+          "path": "lib/engine.js",
+          "bytes": 32415,
+          "sha256": "94d671433527a4e35b0bb136a9d270749d24c1d7ffeceb4ed60ddd5722b28e80"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 2818,
+          "sha256": "1a31de2e16e397e1e1417c3642a0202180dcd2adaed8f2a37448b06436fe3100"
+        },
+        {
+          "path": "lib/rewind-host.js",
+          "bytes": 20313,
+          "sha256": "56fe2aff7e796a61a8fb64d1aab634e78a9d292f30ff140b56c2d792e002160d"
+        },
+        {
+          "path": "lib/types.js",
+          "bytes": 107,
+          "sha256": "1472944a4a8c69f8e3c040aecda7e13a0d456904f99a245ade75e5b4a69c431c"
+        },
+        {
+          "path": "package.json",
+          "bytes": 2304,
+          "sha256": "614b2818847b0c9ea3cb50d952d752c8857f75fc2d157188c2a04880561b4cb1"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 77,
+          "sha256": "2f483e0999d494dc4928f67f1ef61e2d23f2fc4fca79bd4370abc99f2f97b94b"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 77,
+          "sha256": "131d9c456c6804f73a454905fb265d5def91202148805e70d7f22fa3a05ff471"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 74,
+          "sha256": "48c016d912d36f92493aeb8af9dc2501dbedd635a157648abd74a76bd29e9956"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 3972,
+          "sha256": "81b1b6715a622aa275df7455299cb4ec42612ab55e7275ea0797a708e142e46e"
+        }
+      ],
+      "fileCount": 12
+    },
+    {
+      "repository": "https://github.com/Anionex/dsh-vision-toolkit",
+      "ref": {
+        "branch": "main",
+        "commit": "fa3b9bd5b1ffc13378c14d69dc5f18f1519a31bf"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 21177,
+          "sha256": "85069a73ee3f9c1a136be610b76d54fe6ba7a789f3274f3d11ae247051e24f08"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 282,
+          "sha256": "e90874b7800da096cb106012624df2c3853749cac09bcd5b6b66cf752cf5b95a"
+        },
+        {
+          "path": "lib/client.js",
+          "bytes": 125799,
+          "sha256": "8863a75ffe371d7f8bb3ce2dcf110e423dde5e394b92e8ed5a02ae18016235bd"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 5396,
+          "sha256": "42ed52d9c4e80634614ff2fc5e3f903704be6c23246a6a4073fe36b5bb1d782c"
+        },
+        {
+          "path": "package.json",
+          "bytes": 4900,
+          "sha256": "1c3c9818c8ed7d7ad20c2bbc29119a9811653054b823836828771fce521cc3d3"
+        }
+      ],
+      "fileCount": 5
+    },
+    {
+      "repository": "https://github.com/Chinesezjc/dsh-interconnect",
+      "ref": {
+        "branch": "main",
+        "commit": "32ca0ec0441983f7eded7c6d2bfbecfda02087b0"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 11137,
+          "sha256": "d557b0a12da967578cc5fef531f280790dbc6789f2d002468bdd7646f183839d"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 433,
+          "sha256": "3318ca9d56ee6bfa34335d8b665265642ef53f871d516d0898bf97d2713520ab"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 78,
+          "sha256": "ed04c67895df99a731dfc129105657539ab912ca3b79d3994a8afbcf9b8aee74"
+        },
+        {
+          "path": "lib/interconnect/index.js",
+          "bytes": 91,
+          "sha256": "94e8ab000c46147ba2d29322accd51797b583047aea4d80e30d03802b71d2905"
+        },
+        {
+          "path": "lib/tool-interconnect/index.js",
+          "bytes": 96,
+          "sha256": "afa5a6d03322c7c8271a42cd336a78c017fb803c9b703bfb0663013496e021a7"
+        },
+        {
+          "path": "package.json",
+          "bytes": 2715,
+          "sha256": "dfe05c1bc5c51a6d0f1e233ee963f4c880eb04bc5025cd5b2eecf699f9737ca9"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 81,
+          "sha256": "8c18400b6fb31268ab3bc00a51972e4d0a18a59fd41299fcef35370b97a7d1ba"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 81,
+          "sha256": "f7f6997ad14b8a1dc1282a9a4e3ec67c7e39e47ff9cd7876b44edc072843e76a"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 78,
+          "sha256": "39e4c3838923e635ab9763a697dfbdadaa94cb95aa503c076ad4ec0d32ba710d"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 388,
+          "sha256": "861cd372252461820917aeaa2cd8126b934edd1cea2e9ba1bfc980b909fc6ef7"
+        }
+      ],
+      "fileCount": 10
+    },
+    {
+      "repository": "https://github.com/Han-1413141/dsh-cost-meter",
+      "ref": {
+        "branch": "master",
+        "commit": "d48cb7f5e99db682310c95cfd0de026f5fb0e53c"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 74,
+          "sha256": "43be08f9d3889e0e38c12621de508cdbe3daf14678dbcfa9c870c5ef309be6ff"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 81,
+          "sha256": "464a06447ff5b213f6c6ab9ff18415960699315d7a71e67b1f4ff87826f70514"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 77,
+          "sha256": "c4e419cc0038641618813d4d67334c1a7b06e8f83c6ba4ee12f06a4eaa74c50f"
+        },
+        {
+          "path": "package.json",
+          "bytes": 77,
+          "sha256": "8bb5bc8cd2740e6f3799189b5ae18659c4a15ee5ce008ae5eef2553d867818fb"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 80,
+          "sha256": "933f69b05b19b660584c2787a173b80209b90b65cc9b4deda881e79bbbe639d6"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 80,
+          "sha256": "039c0d56335455692fc2ead3f20b1796e8bcc447884612532db5e46296513944"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 77,
+          "sha256": "ce0039db772ffc1daac6b42931016cc7473bff3c5970fdfa420e9186dca7fb20"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 77,
+          "sha256": "533f2127adc3bf8e87cbbaba6f4d22911ca8b63625aae68d8a9d25daf3e30a3f"
+        }
+      ],
+      "fileCount": 8
+    },
+    {
+      "repository": "https://github.com/HeiGeAi/deepseek-harness-skin",
+      "ref": {
+        "branch": "main",
+        "commit": "238d114d1e5bf7358c4cb101b36ae129e70a55fe"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 9915,
+          "sha256": "6afb0c066ab5d311f883ca74714b9563af1634667ce21ca8ed564d2db9952e55"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 84,
+          "sha256": "ba5fd0c5771452ac8790314397d0f987398e5f336a085be445cd4d816e700cba"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 80,
+          "sha256": "8173e71fdb7405b8c3732f1ce1d433cd1b896965710e073568227d495c28a6f2"
+        },
+        {
+          "path": "package.json",
+          "bytes": 80,
+          "sha256": "3c3b439ebf4044704ff9434e71915e41ad42b2464a139a88a214ed9da237fc7a"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 83,
+          "sha256": "516dce569699967aab6ed32be2cddf5e2c92cc1682dd86e6868250067402b745"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 83,
+          "sha256": "6c8c243f94c069d4c28f0a78df1241cac7e4bf1cfd84abece67eb89b00c6474c"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 80,
+          "sha256": "53db8726418ce6d419ccaf8ef441b771e9e553bcb005b76aaf6b4ee1c4a59d4a"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 80,
+          "sha256": "7939dbd0cf51ad9fc3c7f1bc6525cf7ef53bc8c35ad2b8f69973ef89714d4653"
+        }
+      ],
+      "fileCount": 8
+    },
+    {
+      "repository": "https://github.com/HsiangNianian/dsh-auto-continue",
+      "ref": {
+        "branch": "main",
+        "commit": "f53056af85931047b83b105b27fe22bf62d16c5e"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 17996,
+          "sha256": "42f937c5f6a650db05bba167f798df2c43f355c2f6351a7b03447cf9fca7c1e1"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 357,
+          "sha256": "caaf41ad4091f1a35b323dc7d2c9cc8f5815a4470bc797ccd7f534aabd49f743"
+        },
+        {
+          "path": "lib/client.js",
+          "bytes": 91913,
+          "sha256": "a8060d3812a3cacefbbda059378a3af37c5bc3a0282bb48fc3671930dae8c8ba"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 3875,
+          "sha256": "105360186d877f4e15c93216d5a59b1a9614b724a0388f972a19a52dd6d0d5c4"
+        },
+        {
+          "path": "package.json",
+          "bytes": 2486,
+          "sha256": "7c15aefaf16f5055acced91a24a44e09fb0cee10eb590d96d2cdae9c0debc1e1"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 85,
+          "sha256": "54a314451e056feb74dfd04211f9ab36b172af1aef04c9c85d7cc9ac2291326e"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 85,
+          "sha256": "76ad2e8d03cfbc0e220950ec8c8d69e9a0b0ae5c67f1703d48eb66d681a6378d"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 82,
+          "sha256": "a392b4e7cc9bd2c75354a92ab1a8cabe8fe35c04fd10c07fc02212992e274415"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 4638,
+          "sha256": "33eef11a96ce4aca3345f78f88f25aa4e7a0f11727035fb23e8d295fec11dbd4"
+        }
+      ],
+      "fileCount": 9
+    },
+    {
+      "repository": "https://github.com/LX2000WASD/dsh-web-plugin-manager",
+      "ref": {
+        "branch": "master",
+        "commit": "633d9fc2abd851a5a811d2ed06921a9711606c6f"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 81,
+          "sha256": "5131db5c8c621709a85d60516c39fbcd0d4e1c8f8d8fc21fd6d239c6e9c5e730"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 88,
+          "sha256": "3da7d0034be6cbb5eba4ccf94413bc6b0eccfff1350f4347f4b5c9c856f7f391"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 84,
+          "sha256": "8c1c13de7cc5214bb9c5d4e72b95f0614f7d616662e3f9fda1e52f8303a65cb1"
+        },
+        {
+          "path": "package.json",
+          "bytes": 84,
+          "sha256": "e0789bdae8722b148cdfbaa0d621f2c131a6f8b98a2ddc4d7fdb0f286cd9e195"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 87,
+          "sha256": "f66b093b9010d0e7152e867371c90427d09ec29df9f0aab8260223d06f230ba8"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 87,
+          "sha256": "d67870091470f6f58b3c1fd497a7ef4dbd56be44b09a90ecd70f1f61052c8e19"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 84,
+          "sha256": "f12c4b4e3d081c844dd5bc263fa1bf8f9e1a7a4142e5445ea62842c8dc46fbf0"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 84,
+          "sha256": "a4c2168766464a57a7fc88564b987233e1abd204908632db1027b2266b4e80da"
+        }
+      ],
+      "fileCount": 8
+    },
+    {
+      "repository": "https://github.com/LoserFox/distill",
+      "ref": {
+        "branch": "main",
+        "commit": "78a508c8839a0cd4205c95416905d7d5e2e2775e"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 6216,
+          "sha256": "7df0effe03a3aaae5e5305f461b2bc09c0b11a19d63fda071b75611001a0ce2e"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 284,
+          "sha256": "c7f88d597e6d628c84130d7169a03584252d648812fff545cd0be6320014d3f9"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 28266,
+          "sha256": "4abe08c677f5d71ae77f4dd4930ed8e306a329eebf02741e0ed7ac5ff0c237e8"
+        },
+        {
+          "path": "package.json",
+          "bytes": 1029,
+          "sha256": "7233f33135e241b4baf0465fa6c62f9a611f489cb72101901a0f346389a39d42"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 70,
+          "sha256": "ec243a3ff4f80d3d8a9906cd8ad29aeaecf5299d61a6eaf9d66cb621628b02e8"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 70,
+          "sha256": "fce03e49fa7d3b9ad4bbaac0b3dbb46648552e272979a7187dca7c8fa1d4240d"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 67,
+          "sha256": "f42bd8994aad5750fd36fe9e0e7d0200658110441420c33a5dda4ffd08452263"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 28993,
+          "sha256": "36b9ea144495f9efd3a0d2cc0bb93ecc77be364cded1cb0c9281f48d5ffddd30"
+        }
+      ],
+      "fileCount": 8
+    },
+    {
+      "repository": "https://github.com/Moeblack/dsh-message-edit",
+      "ref": {
+        "branch": "main",
+        "commit": "b78a167064ca612f1c400060d2bfc1dc9bc46436"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 7290,
+          "sha256": "42812b5e6ce44a2653d99f261560cbac5fa61ea4d0e5e88ca23a2db4e7b78f71"
+        },
+        {
+          "path": "client.js",
+          "bytes": 63345,
+          "sha256": "808c67965ff3575f16b8049d182af6b2664c47b9ee27cb1bbb09b5a7b35d3c8a"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 62,
+          "sha256": "e7bb320452db784d3dbf08114b09dcf68a574ef8c4666af13c9c73478d4b0a4f"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 76,
+          "sha256": "0917c6fa05904d6ec6b391a13f5a529d7212e15ec64be568716ca72bcf07fef0"
+        },
+        {
+          "path": "package.json",
+          "bytes": 1812,
+          "sha256": "94cc0f260ce1ee3d2cc93f69c68178a9d34537f68e62ddd9589e6028b250b750"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 79,
+          "sha256": "ef804246c1fb0b114a3ed35f10c2e4f075243923570c5618a653b7b70ea31905"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 79,
+          "sha256": "cae7a4a74ef4114c8dbe9830b410d6717b20a1f5de6c62642ecb13ace3b6ee0b"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 76,
+          "sha256": "5d4d4e77e4be09badb5e251619900e337c0684d33eb6550f5adc32270bcd76f5"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 31069,
+          "sha256": "cc7e66723708e8e9ce078b40c50b87979cb3cfd7b70e3a8ef043eec112fe87b1"
+        }
+      ],
+      "fileCount": 9
+    },
+    {
+      "repository": "https://github.com/Nagi-ovo/dsh-ads",
+      "ref": {
+        "branch": "main",
+        "commit": "3a2ba704bc383099c686d3288ff6e0d61fc391e5"
+      },
+      "files": [
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 128,
+          "sha256": "81e8cf63d6c78d84754f251df3c22dbb3d0d0398f9dc554504e4bd394f1065a4"
+        },
+        {
+          "path": "package.json",
+          "bytes": 2213,
+          "sha256": "7ca2ae919e963f00428cdc872f7c73e76354fe033ec2b6c9e4fb513742f0171d"
+        }
+      ],
+      "fileCount": 2
+    },
+    {
+      "repository": "https://github.com/NanmiCoder/dsh-agent-teams",
+      "ref": {
+        "branch": "main",
+        "commit": "801954dd7be67213cf4adc1aeb6f97bd3daa12cc"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 6249,
+          "sha256": "67eef3cd2c0b5c33993218fe531df3c14cc80c1e901e7a583b2c34769dd4f5cf"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 1108,
+          "sha256": "699b8ba773693205db637a5fea7c0c9e38ce1668a148e347beb0ea4339c2079b"
+        },
+        {
+          "path": "package.json",
+          "bytes": 5073,
+          "sha256": "25e2023e729d4ade3f07f26ccbed8fdbd9780ebe68f9199e37fb687c6f0c0ddb"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 77,
+          "sha256": "68fbb5540b638e5fd975c7c95b43e571c79cb843e32d251974068b377c90afec"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 10515,
+          "sha256": "ca5dd067ad0eb7b3550c4785e624e67861e5f1ded961be1ba6283369e23235f9"
+        }
+      ],
+      "fileCount": 5
+    },
+    {
+      "repository": "https://github.com/Noob-stupid/dsh-plugin-hub",
+      "ref": {
+        "branch": "main",
+        "commit": "9271cda89840c00776862ff80e06b077efca5217"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 21248,
+          "sha256": "747594994ce61712058b7012988dfb7b42acad2fce2fee565b2fec7eb758fe07"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 277,
+          "sha256": "1fd34a95583aaa118a4b0f55ec887cb97d32da052eb80cb1b668874f36d002c0"
+        },
+        {
+          "path": "lib/client.js",
+          "bytes": 135299,
+          "sha256": "38c8936374752a9fe7e286573e01134fb5be2ab4b3d9a1da0a0020a1808c8611"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 140442,
+          "sha256": "7ba1eccd94278f147b426fe3ad9b6f2255c4f622cb76b376fb74834685fd8f42"
+        },
+        {
+          "path": "package.json",
+          "bytes": 887,
+          "sha256": "9a46fcf2e1bc614ce0fff32f503f7d6af49bf53f270ac53050af11358e485ac2"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 80,
+          "sha256": "b38db0d53b3b781a219cf0f4ef4290811ec598cb2d23077f43ba2a423563aeb7"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 80,
+          "sha256": "9589a30019177f5cefdf7e758f7a44286be1ac770b2632f8e7bf0a34e493c86f"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 77,
+          "sha256": "dd4ee3594862496611b8a4bf5797bc87a507d871b1e0b7ad8e9e5c4ba572b2a6"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 77,
+          "sha256": "c6486155a73844a54bca3b75f7d2730871c17174fd874c5232fc280ec1dc6f1a"
+        }
+      ],
+      "fileCount": 9
+    },
+    {
+      "repository": "https://github.com/Nwflower/dsh-chat-import",
+      "ref": {
+        "branch": "main",
+        "commit": "0fb7d9c479dd7f56edc61c8c633b883abdae3dfd"
+      },
+      "files": [
+        {
+          "path": "CHANGELOG.md",
+          "bytes": 62603,
+          "sha256": "85e37042bc0111500bf52765be1579ca795072bdd4352220fe4d527ad62d00d4"
+        },
+        {
+          "path": "README.md",
+          "bytes": 12729,
+          "sha256": "adb4764e1dd4eff9dd6995344c5645495d51a34cd104b2be4f44389e26f7ee54"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 62,
+          "sha256": "535bd8e40dcb930aa0fba36581fdb8c1d5b3ff4cbaedff101fc55595e2236ccf"
+        },
+        {
+          "path": "lib/client.js",
+          "bytes": 49940,
+          "sha256": "dcbf6602f0b624abc0adc397719dce582b570a2036f369035beada20d0b1b20a"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 75,
+          "sha256": "2fc1c24554e6da447a3ac314e94368f08a8ee023963ef1adb8c255c06ec21d77"
+        },
+        {
+          "path": "package.json",
+          "bytes": 2829,
+          "sha256": "528ba523c3a70d281addc84419bdf476a01f7013f9781d7217dfb8c55ffb0767"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 78,
+          "sha256": "bbedcf118631bcf50db268358b31b0d6656a3e83c734e23ccf4990f790b7f90e"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 78,
+          "sha256": "5091ab7c0a230f5db0d962ac58bef4b96ec751d7918e19421779a0558ba4d3a6"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 75,
+          "sha256": "05a59150d17aaa4fc61d3bd2ed8808e7ea3423efffbf45d893ec57e21b98072a"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 75,
+          "sha256": "0e54678b799efde8fd129177da40760ee89aa6f1ef37601125587ed1a86bb49c"
+        }
+      ],
+      "fileCount": 10
+    },
+    {
+      "repository": "https://github.com/PC2005-cloud/dsh-pet",
+      "ref": {
+        "branch": "main",
+        "commit": "815c0f556911fbc95b96d347c71d714e4debd922"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 11879,
+          "sha256": "23d65a4be8aa450aaef72564c1c0675a77f32f40630c52a58bb24e51983a4ef5"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 75,
+          "sha256": "9d1dc3e80a743e31826ea775f1ec5138124e5ab90a2936a2a4501f7bd5a2e600"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 71,
+          "sha256": "06eeaa15ee4e088492fd56ebdae0964a221c66c0b0809fb4fed94e6e84256a84"
+        },
+        {
+          "path": "package.json",
+          "bytes": 71,
+          "sha256": "92bd7a339c8a53bfc8a410a2de8569b5ce661aff1c110e039a0cbc19029fae19"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 74,
+          "sha256": "3ae61437c74da6db8066fcfaeaa8af0a29480a955a80f5b98dfe702fb3c64ee2"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 74,
+          "sha256": "22a8de4a65bb9d05952da96f648f37770ad2810647e7f9f5b6a1159e2856f4a6"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 71,
+          "sha256": "78596c6560f4905473c4854a192b0acba1236ae08b9aeda67bf572f1eb1c6f2f"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 71,
+          "sha256": "d04e6c88742ae4f4e2ec0d6895ac847259aaac843436cf2c02eecb90e3eda4e0"
+        }
+      ],
+      "fileCount": 8
+    },
+    {
+      "repository": "https://github.com/Small-tailqwq/dsh-deep-whale",
+      "ref": {
+        "branch": "main",
+        "commit": "0a3d03251d1e88a08de79e27fb884ed9200913ad"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 1838,
+          "sha256": "1fa4f0a81740cd507e73f15b55deec99ef3d5b734bf95357a64005da7b8f5403"
+        },
+        {
+          "path": "package.json",
+          "bytes": 79,
+          "sha256": "3421c418a6e86db7a66d313b13c7d1ef8a81c927ad6139c993254d9f5d207f7c"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 79,
+          "sha256": "0f637147dabc17626b9c52115d380c0d75cb3de9fe982776b2a0acf4f9c4139a"
+        }
+      ],
+      "fileCount": 3
+    },
+    {
+      "repository": "https://github.com/THEWOLFWALKER/dsh-notifier",
+      "ref": {
+        "branch": "main",
+        "commit": "cc4781e9939210b2d91b63f5448ccef40708a7c2"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 14665,
+          "sha256": "58fe4a2edbc859b68e0cb26268618e958d52a98898e8800bd10c3fe25a354e8b"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 573,
+          "sha256": "050f3171fd608d01898f87e046be4e88060c6f919c22b81c2fb9618e5d7ce1fb"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 77,
+          "sha256": "d911c8e4de1af0986b9db55e5cffe15305a570172a5663a1ecf0114a59c7209f"
+        },
+        {
+          "path": "package.json",
+          "bytes": 3031,
+          "sha256": "98721a18fc192ada02af8dfef6f32009f2dc114215820d602002e62191071f85"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 80,
+          "sha256": "b0b72495659f48e275cb121921e4fe2b30e00612565b97ca72351f0f2149a368"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 80,
+          "sha256": "d89f8bcefcbf33f6e7951b0f4b878b2a3801d945f46f157314ea98fb25abcd81"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 77,
+          "sha256": "58792a23540e331fa36f7a1d6ebe038412970116722ece8aefeeaedeab0f14c6"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 77,
+          "sha256": "86c96d3c342b43ac36530158434d3012cdb96e22e684edb28ed90f214be2f6ac"
+        }
+      ],
+      "fileCount": 8
+    },
+    {
+      "repository": "https://github.com/WYH66666666/DSH-Transparent-UI-Plugin",
+      "ref": {
+        "branch": "main",
+        "commit": "27ebacb504f43c31c29c4b700b54f902a26da978"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 3640,
+          "sha256": "9c15b77227538c22153dced6e5fbab0dcbab8d9c0b253b8ae41b758100a8e013"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 447,
+          "sha256": "83a840b6a056355612d6606e543acb4b3b0804cb5e564a4db98a6353f45af92f"
+        },
+        {
+          "path": "lib/client.js",
+          "bytes": 232285,
+          "sha256": "e0ca9f6eb6a23bb50d903747ac824987a9e74ccf31a591cd114f9fd219a704a1"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 530,
+          "sha256": "5610ced955eff00ac30a1fcb7681fcd5dbd22772e6cba51986db56db28c4e98e"
+        },
+        {
+          "path": "lib/invariant.js",
+          "bytes": 980,
+          "sha256": "69727b84872f84bb2cfb3e6f35e2c085e986c355bc84e43e913f81328437cc25"
+        },
+        {
+          "path": "package.json",
+          "bytes": 2671,
+          "sha256": "0ba04009f092859ff695bbb39f47efece713043d2f27b7f0385dfeecb33f5baa"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 91,
+          "sha256": "95f1ac6bba842aa0a7a138d9685016e4a8424c2da5bd9f65d4ede4c3826ae4c6"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 91,
+          "sha256": "879650cb21fdda81098e32d9276a368ac65de5c360fb8b9b68843803c264c522"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 88,
+          "sha256": "ab839489ecfcd8ecea8c237b9c2d3299060158b8833b2701d5d5c7a881d7c16e"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 490,
+          "sha256": "8b3b4029127cdb1e2d5cab3a1d356f9d40f1c0ac6b700d0aa5425217470b1efd"
+        }
+      ],
+      "fileCount": 10
+    },
+    {
+      "repository": "https://github.com/Ychris12138/dsh-usage-stats",
+      "ref": {
+        "branch": "main",
+        "commit": "1623c3998f75c53e2125559f712124779ce5cb5d"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 16112,
+          "sha256": "c06c0313f448628b6bce6d4f317e5ce608336e7d2c73b8e45880dab485ec9e3d"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 170,
+          "sha256": "789dadcde6785dcdcd68603274ba6001f3d6d90c6e90cc46908a41410aff2d62"
+        },
+        {
+          "path": "package.json",
+          "bytes": 2787,
+          "sha256": "e7ae620b453268ca05f1dd949deecfb4959ae7ee948f7975abdca155262aaaf4"
+        }
+      ],
+      "fileCount": 3
+    },
+    {
+      "repository": "https://github.com/ZSeven-W/dsh-noema",
+      "ref": {
+        "branch": "main",
+        "commit": "77f3a0c426440499d96b2cf9b7fa0c9ca3b5f4a6"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 11298,
+          "sha256": "7d4e24280881a094449041d067f652886d81f7845640d3a8c18b6134364ba8cd"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 294,
+          "sha256": "3c4e4fcedff5a11efc8c5787fb4e761b5cdb2fd93cfcdfadbdde41ec5927d216"
+        },
+        {
+          "path": "lib/client.js",
+          "bytes": 70,
+          "sha256": "76322ff119d6ccfbeafc3380ce6b3f9f56cdf9de3547ecd3a1c76c31a8041cc8"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 69,
+          "sha256": "86db8daa124d887623b98e0d2de26e62816e9e410342de14dcfbc9aa9409dead"
+        },
+        {
+          "path": "package.json",
+          "bytes": 4347,
+          "sha256": "a24d514fe31a3ab2256c83e0627b03f38e6351cee929ab2f8c6a8a723f62dc36"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 72,
+          "sha256": "e5175d490f0071b94830aabc67f46cfbc663bf238b9b3572200acbc792a0dd83"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 72,
+          "sha256": "3eca5e72d4eea1d7a798c08570edd9019b1822e584356ff14abd1bfad78d1d5d"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 69,
+          "sha256": "7994c9b57d9f483f734e376248c0aee3455b692205d10cd80e55b11f92c689d7"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 5739,
+          "sha256": "f284e9af7b978c2d50030e591ae0486d8bfbd941df11f9a305850cc767bd385a"
+        }
+      ],
+      "fileCount": 9
+    },
+    {
+      "repository": "https://github.com/anysearch-team/anysearch-dsh",
+      "ref": {
+        "branch": "main",
+        "commit": "dce7a51c74b80f8fa51e53f510a572ab6dd60f28"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 8066,
+          "sha256": "5bb6fa14f1e680992092a63e6399e89df515f3ea68c08000c6251fdfee908892"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 253,
+          "sha256": "bf61dfdfda06b9248faa06ee612643bd0e3fa1eea2cf2bdc80c5cf6e4b8ec441"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 79,
+          "sha256": "23621b9778529c75ee120b86df09b9e16a27c7cc22642189308420af452d6177"
+        },
+        {
+          "path": "package.json",
+          "bytes": 2422,
+          "sha256": "7a9577be96e1da9d30034ad62920b0649b353ca81357089863d786c14f481b8a"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 82,
+          "sha256": "bb9328e162f8b061018e32c9487f8aac2c1d5003ff9b4570d3417e777d268b3e"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 82,
+          "sha256": "a04759bf4ec0e134052b068407abf82107bf394d67460272575e5b078b3a7605"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 79,
+          "sha256": "8d11ef8fac2a545f8388ae81c8049c781a7953d716b0486f74fe21a7d495f7a2"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 5491,
+          "sha256": "a3f4f340e4e9fec8f2998d9a2bb04220928e6a7616390f29745bf0ce8e6a3710"
+        }
+      ],
+      "fileCount": 8
+    },
+    {
+      "repository": "https://github.com/ccch1mneyyy/dsh-TUI",
+      "ref": {
+        "branch": "main",
+        "commit": "179bafd0908bb8d007228b279d1e325a80b16d3a"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 16680,
+          "sha256": "4be708326eb68ab4c7289e0467ce036695b547de352c8e534e3d41ddb8dca007"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 13141,
+          "sha256": "35e182451465f31fefa2bdf4201b79f00ed69b0c96c103c306432ecf7579c56d"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 70,
+          "sha256": "bce23a7cd3ef60f51a4dddd76dcb9ec98c32231c7210a5a4eb226e22fce74fe6"
+        },
+        {
+          "path": "lib/types/dsh-adapter/invariant.js",
+          "bytes": 92,
+          "sha256": "c5d893426505b4c3c6892529e87d44a90f1c6e9e8c5bffbc5db78453ef898c46"
+        },
+        {
+          "path": "package.json",
+          "bytes": 8267,
+          "sha256": "a95ceace8b0801b08c2479de58a03677c028bfc56aaf4d0f5b872ee30245c67b"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 73,
+          "sha256": "d5511832531b0d3768753cb76adefad1ccd98588e7bf80711284b6086397c78e"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 73,
+          "sha256": "3c9f4324d96c5f2882979cfd1e9158cf573bd9024c9ac020389dbe5420f69992"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 189,
+          "sha256": "f3d67499191cb4e5989be694ccd92584b738eca3acb1ac0bfd4629b954a25d08"
+        }
+      ],
+      "fileCount": 8
+    },
+    {
+      "repository": "https://github.com/ccch1mneyyy/working-activity",
+      "ref": {
+        "branch": "main",
+        "commit": "ce9d75f2510d8ab05113b28d8f7a5f9beeafe3bb"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 14799,
+          "sha256": "a780aa921c5b03b6c1ee7130283190bce4ec798e2e63be551875b2aed42db161"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 83,
+          "sha256": "f77e1822aed704481b053ed8421ae38c342179abe57a281a05f9510439b58592"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 79,
+          "sha256": "93907b16c0c5ce2cacd4a2decf78a742554e61b7e5a53d57223e52dc22ff0507"
+        },
+        {
+          "path": "package.json",
+          "bytes": 1620,
+          "sha256": "0e4635fe061285fdfa97793d9e08561ba67d9709ab33662879df6ceb249d641d"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 82,
+          "sha256": "51b6a8735e26ee6f6c1a72fbca66b96822d959e294d676a49a286ab061614fc6"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 82,
+          "sha256": "c76aecc7699fc338519a022f019892eb470f3c356305f3289d9e7d4c828828df"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 79,
+          "sha256": "eff04d98712128b206afa6ca4d02cc97e8c091b3da13c1a1106ba491b3919de8"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 79,
+          "sha256": "9576d296ad14e15d945b592e4ea794fd292872d62491b18ce28f25185bdabc51"
+        }
+      ],
+      "fileCount": 8
+    },
+    {
+      "repository": "https://github.com/chushixixin/dsh-harness-mcp-server",
+      "ref": {
+        "branch": "master",
+        "commit": "d174cea870aaa9f6dd67f2e9c3f3e3fa0f0e041e"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 82,
+          "sha256": "8d346913d920a155119630bf435403b499a097accf284af44e24b92866ee4963"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 89,
+          "sha256": "20b8bc0d77f227d62dc454c09e06809196c08bc5f076552005282d4b31078d2a"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 85,
+          "sha256": "4916d645a863ad21240756553e0d731d23ba68a8b904d7eb7bebb77afc8c680f"
+        },
+        {
+          "path": "package.json",
+          "bytes": 85,
+          "sha256": "47f02d704a96166708181e27e9155cda3d12c3533c7f0ebf97049677e0319bc5"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 88,
+          "sha256": "09fcc4178586ba0a6a7234628986e9f917467228e9f692bc339c82cab8967c46"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 88,
+          "sha256": "0b7c1e260cfd59cde7be09d848ea421e00ceaf91692a89d00bc56ee9100ebdab"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 85,
+          "sha256": "6b36a3793d9fbed824dc5b32c7c10b1f2d13c241fb44a88505e8684735b88748"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 85,
+          "sha256": "6ba261637e37f1b046d4a58cc6d9bc9f8236e331e712c17c0314a2e3d48c1440"
+        }
+      ],
+      "fileCount": 8
+    },
+    {
+      "repository": "https://github.com/csyangwen/dsh-memory-evolve",
+      "ref": {
+        "branch": "main",
+        "commit": "a08fff7f5c0228bf7a9dbf21d917579ccc08a5a8"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 27902,
+          "sha256": "e6d1fd404d30864bccbef6407020e6804ad07d6370538baa8b4756338094c4c0"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 560,
+          "sha256": "43144b1987e5ef270f3aa18ba72993b123b7ce00665d56b5ccf0d74802737957"
+        },
+        {
+          "path": "lib/client.js",
+          "bytes": 1165154,
+          "sha256": "1c5ddd66f3c84fedae479a85e96c116ac5e415cb78b334fe44fc3f96b513235e"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 117329,
+          "sha256": "b5550776224b405341ba1659c3133cf586b01c2f2f25182ae96950c0bd2aa2af"
+        },
+        {
+          "path": "package.json",
+          "bytes": 981,
+          "sha256": "4d9d8fac7945cf7d18e0d0e0f6f31daecb36acb194d63e63f1600b29f94bf2d1"
+        }
+      ],
+      "fileCount": 5
+    },
+    {
+      "repository": "https://github.com/dsh-market/dsh-market",
+      "ref": {
+        "branch": "main",
+        "commit": "488de05f4f7e6a3e03627b403cedad828a226cbf"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 6806,
+          "sha256": "977f99298b4717ad61ac4305f15f3ac6cb9640865b7eceb314ce8dff07b2cf9c"
+        },
+        {
+          "path": "client/client.js",
+          "bytes": 261573,
+          "sha256": "4b4a23fee2b0b90d870f5f2ca70984d6c040ae7328b564081b9ffd50b5e81dfd"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 125,
+          "sha256": "8e2367e0370ca5c122f8b5c865159fedf0422f834cf10a6fa3d3be165a60640b"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 72,
+          "sha256": "6ef880c7798250329fd48425f4e16dd5b81a48c8e63acace3ec8e738355c376e"
+        },
+        {
+          "path": "package.json",
+          "bytes": 2780,
+          "sha256": "1beaa72ca8fc59fc5f664d068b86f7640680d8ac06b69259b8d4e0fc787faabb"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 72,
+          "sha256": "cc73ca48f874509834b298ede97b3ad604c17251d9b1b8e57d6a195f362bec09"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 3447,
+          "sha256": "4e10c54dbf712f45428315dd11d2c88a687f97bd343ebc71604cc8c465193cfd"
+        }
+      ],
+      "fileCount": 7
+    },
+    {
+      "repository": "https://github.com/flymysql/dsh-remote",
+      "ref": {
+        "branch": "main",
+        "commit": "fc82ac28f31e170655966881478558410f129c64"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 7770,
+          "sha256": "83331ab6aa3c5809c46941fa6e52a178483304436caa10607123f7db1cac8e77"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 259,
+          "sha256": "544ceff15313e2c7a0ff741706008ca990ec975b42d5de5953c9398e0fce9f31"
+        },
+        {
+          "path": "lib/client.js",
+          "bytes": 31790,
+          "sha256": "1ae5d692e2288a57c000a2bafcb9716df39ff75d8bbe87492619d53357d1a4aa"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 44985,
+          "sha256": "f9a6d807109c71e355c99d0893cbad7220cdaa4f5e99a9a091dd6701e7d4b77a"
+        },
+        {
+          "path": "package.json",
+          "bytes": 1749,
+          "sha256": "4c9f91e1ac5aba80fc9e86217b4a7ef20270ab95f52630fa77d6882ef2c91a7b"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 73,
+          "sha256": "901e6f791650b5ca200d374e7e551689e0aea9ded4de9a533d9dd102e37d0f65"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 73,
+          "sha256": "4d4a0bf429517986396a405a7e5c087732b71c39e3c5f8e3e30f44ecfd652bb9"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 70,
+          "sha256": "14c74939667fdd568b85bf620acfbc6cef5d49b5c7384fefe8d28baa86bac209"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 70,
+          "sha256": "963b4db2afc46f5612d85ade905b8bb9a4e8543ac5ae5742ca341628e369a7a8"
+        }
+      ],
+      "fileCount": 9
+    },
+    {
+      "repository": "https://github.com/fufankeji/deepseek-harness-studio",
+      "ref": {
+        "branch": "main",
+        "commit": "8000674e0e67dfa51063c99bc16b9c0aae049b84"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 32241,
+          "sha256": "dabf09fec5df66ddd2b7951a6c44a461ff31380e54a62d4bd9c1d1601ceea996"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 88,
+          "sha256": "9e6609ec908400ce9d7da228612244098f36e76e276d2fbf8e4ce1f4a053f789"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 84,
+          "sha256": "b366a711ea8ee7b2398ed5f47ec74d65490e28b78011357a1d9b7d658a94f270"
+        },
+        {
+          "path": "package.json",
+          "bytes": 12301,
+          "sha256": "e256179f14d47684513e1f4c9204e53f0a35591242276f32233c92b403a1ab8b"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 87,
+          "sha256": "2ea4bfb2940834fb3e75ebc7b1a4586375f5200f406da2ad164bbbc5dc0be99a"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 87,
+          "sha256": "b3dd655a909a146e82ca4c22fb31e4bc876f6e1788df8d8ce1faec61cb4cb57f"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 84,
+          "sha256": "efc79465c6ddf981ca432495939310b9bfc0f6ff362df23d4034a0f1b4d77d2c"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 84,
+          "sha256": "1a977aeb36dbcd23de356a32ab99564023e7619e91e06b7ed8aa3c105a22c345"
+        }
+      ],
+      "fileCount": 8
+    },
+    {
+      "repository": "https://github.com/hairyf/deepseek-harness-desktop",
+      "ref": {
+        "branch": "main",
+        "commit": "5fd946871367e5f0868d6a3def0c5f315a748e44"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 6092,
+          "sha256": "151332368b99e269fce29681937f2cc44e97a2170d60d2b248dc053ffa738ec4"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 86,
+          "sha256": "aee0e9ff40109cda3669fd0f5b1e6eae8cb4d191ca11365d4baa0a2143fbcc88"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 82,
+          "sha256": "a8da4154e7ddd90f12190bfa49658a0e2bfaecb1c4683cdadea36595123f3598"
+        },
+        {
+          "path": "package.json",
+          "bytes": 1542,
+          "sha256": "e4e26769a310ed2b4a0f73aeaf3838998883a2f02079cb3da687298a008470fc"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 85,
+          "sha256": "b3909c6df17abde502e684ba54dd23d78d024a8be4f67ea3fdd1037c3bc597a0"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 85,
+          "sha256": "a951ecd191d903b1d458694a47dfed3203471b5f0748c042bcdee83f1815ac20"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 82,
+          "sha256": "37c3887c935a06bcab25316fd297a073ccb24e7c9b198c077ce518fa0b5dce54"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 82,
+          "sha256": "78f8f1150679faba0711d227d8b6032affefe64e94cdfe111262e76a6b310f7f"
+        }
+      ],
+      "fileCount": 8
+    },
+    {
+      "repository": "https://github.com/hellodigua/dsh-emoji",
+      "ref": {
+        "branch": "main",
+        "commit": "96b653a473c978a474dd7d42e86e5b2c79e6dc7c"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 5079,
+          "sha256": "be653ae7b9bf34582c2e8f94ea2d0b1c77858029755252a3360d78289475e3c0"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 127,
+          "sha256": "2507f02ff3393464a15505b6ff42f9a296ce8f85ec7bd40c8581e38716124859"
+        },
+        {
+          "path": "lib/client.js",
+          "bytes": 53730,
+          "sha256": "67c38b6910d6af1b1cb9c512dfdd564b4bd829c3070bc8c4d7ed53def5902fb4"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 73798,
+          "sha256": "006b0c3400769b273786648a25709d00c8095e1f22e51ee48286328560686fdb"
+        },
+        {
+          "path": "package.json",
+          "bytes": 4256,
+          "sha256": "677ed55f14d3c7a93d3b41468b5688391e981dc2c97ec5ec6b053cfb7033867f"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 74,
+          "sha256": "4afe8dd3aa2e70f61d1c1ae80c848ad3c62ac635d453f66484852d33f12966cb"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 74,
+          "sha256": "9cf5b03feeb721b5db2bf005369b475468d0f341d400d46c08f3ba4dc11f95a7"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 71,
+          "sha256": "6b013c01bf789c93c4f6226792504c2fac0ac052c355d340d9720181224aadd3"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 7574,
+          "sha256": "52c4a5b7d5bf4ace75c5cf33427aa009289ac47f1ebb425f5ebffb56f200f862"
+        }
+      ],
+      "fileCount": 9
+    },
+    {
+      "repository": "https://github.com/hellodigua/dsh-share",
+      "ref": {
+        "branch": "main",
+        "commit": "c109330b755c793cbc701a4e6a972d620a6667da"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 3211,
+          "sha256": "a2dfe5ffcebaba6bdae86ecb5f23df81f674ee024319a1a1e03d898c7399a09a"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 52,
+          "sha256": "055e1c73b2e15ace0d1e26126c9d761bb540930bb41db792849f478cc166fa26"
+        },
+        {
+          "path": "lib/client.js",
+          "bytes": 173054,
+          "sha256": "bb921e801e770159077d26bf0f9d012d82b83ad1bedbdf459268cb0952062d3c"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 110,
+          "sha256": "72d085b23dcda0c4ba6099f6a00bcd4236040031994a90aaeae680e648aff459"
+        },
+        {
+          "path": "package.json",
+          "bytes": 2853,
+          "sha256": "c76a3a1b3f1675c31cbb293ea2877641eadf4b7a31bb74c40b04f41be51c1439"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 74,
+          "sha256": "d7a3159bc2ab552919a20abc612c6fd4da27246e107deeaf89301a000d876a16"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 74,
+          "sha256": "eb82b083efc584a072101ed9e41aeb43bddf3298e3f0ea77b9378142a418825c"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 71,
+          "sha256": "a43e8bbbacc49136679ed9d95a12c587bb4b8f204d3657c1fa96315c70f64a94"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 184,
+          "sha256": "b30a2eb06b837ca161c5ed22b7fe55d3d7bd8f8d29d6641afcd8acd4c43717b0"
+        }
+      ],
+      "fileCount": 9
+    },
+    {
+      "repository": "https://github.com/kelai141/dsh-mobile-apk",
+      "ref": {
+        "branch": "main",
+        "commit": "a21ad4d5af6b0f6c974f8995c9a742b761aab6a7"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 4205,
+          "sha256": "1766342148e1b5d1648ead260b27c194931351f2da237192601e6017c1da1a74"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 78,
+          "sha256": "707e0fa2817d0b4f2ae06268afd19dd0ffa5cb61ed8ef8dd056e31b6d4c07138"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 74,
+          "sha256": "c679122f818e80951ddd12e0f44d231a834862e4e9c56af619d4e46d280f5ac9"
+        },
+        {
+          "path": "package.json",
+          "bytes": 74,
+          "sha256": "14e5f3cdc4ef8fbcdfb217bfca4f46a9d29644ece367767021ae11cf0542192e"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 77,
+          "sha256": "4682b1a0449216c1998ed88a5643c6b2fa69e277c6def0f101e9bb380b4c8686"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 77,
+          "sha256": "8b9dfaf4e1339f180e6d200530b5e60753cc43850b52f1cb235c63fdf7231df0"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 74,
+          "sha256": "1a1d3db1e08ff00da27e8fba23f17caf69b95fbe71976a2b0e642fee89d9299b"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 74,
+          "sha256": "8a8a708f451932aaad5a6f2c4ac25e725c8582c893ebc6f7f17f24f4ca6a143b"
+        }
+      ],
+      "fileCount": 8
+    },
+    {
+      "repository": "https://github.com/lhh010/dsh-minigames",
+      "ref": {
+        "branch": "main",
+        "commit": "0f5f6908db0c2b913329547fba3781e186bb8972"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 26280,
+          "sha256": "39063e91a01aa381b89966114b89bf731e12dfecc267c009279b9e76640a91de"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 348,
+          "sha256": "f6724cd6969a75017d77f202122d72046ac9f13b8cd51e21c91f4483f31d6338"
+        },
+        {
+          "path": "lib/client.js",
+          "bytes": 242658,
+          "sha256": "50f08a0e4ecd73e3bd76ada81d90bc79f922fff6c35e0b850218597a9ec88671"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 435,
+          "sha256": "2564a83370bd199f3f0d610c63840f56ab241057b0ac2d68b1b3734bb9fa0108"
+        },
+        {
+          "path": "lib/invariant.js",
+          "bytes": 11,
+          "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881"
+        },
+        {
+          "path": "package.json",
+          "bytes": 1359,
+          "sha256": "3d77d3ae76a9d61441ef15c90d56c35e26bca9caa398b3fc16bb6d16f54f3286"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 74,
+          "sha256": "19746214d9074a021048037c524b66e266ccd14cee562c4ace547f31c7d18de4"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 74,
+          "sha256": "f7a2a39b617d3a82d523973c346020404075df0c83bde92276aac9833cc8d83d"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 71,
+          "sha256": "6787982422e6fe15a21d6c1f00f774f9a879b3710d5e0e952b75bce91159b2ed"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 915,
+          "sha256": "0cc9efd78a93c2fcd41434fee7d7c453cfa881f2500a251f480790fb120283e1"
+        }
+      ],
+      "fileCount": 10
+    },
+    {
+      "repository": "https://github.com/liustack/modlens",
+      "ref": {
+        "branch": "main",
+        "commit": "00498f0b6ad7a5138ebe509ecd6c7ed773f049de"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 16223,
+          "sha256": "a2e78c9b0a909696ac93c100c70e7c1cbae3201168eb4e6472bea395ab26f72a"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 213,
+          "sha256": "b190ef90625c1417a7a798b2982a84c0219f0030f0fea11133c7602815c3f00b"
+        },
+        {
+          "path": "dsh/client.js",
+          "bytes": 32378,
+          "sha256": "585d992eecffcfc3a9f5b611898f8385f34a9be584fdb8b2f35010b186ae9fb7"
+        },
+        {
+          "path": "dsh/index.js",
+          "bytes": 65475,
+          "sha256": "cf11c3befc04bc82fa5538a90093988442445078d2ffab8d9f8d2d1e1c0af925"
+        },
+        {
+          "path": "package.json",
+          "bytes": 2237,
+          "sha256": "a630351676a6204a63622643ae185a36dc8116b697a48d7f9912546b33516ef3"
+        }
+      ],
+      "fileCount": 5
+    },
+    {
+      "repository": "https://github.com/liyupi/dsh-kun-like-pet",
+      "ref": {
+        "branch": "main",
+        "commit": "87bb6e1762618dd7727d285ffeeadd86a3799425"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 6555,
+          "sha256": "f52235c868b3d243251d503464a919d7f93550d0191fa67d16780cdd3383a33f"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 78,
+          "sha256": "a5382c63975baf4b891942b5c49de542faa179366fe5e9491b3258b9ef4a8ec7"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 74,
+          "sha256": "22cc53407a30076c15054d47b11a3f8e88841b357bf15e74b7e020df74d537bf"
+        },
+        {
+          "path": "package.json",
+          "bytes": 706,
+          "sha256": "e400f8bc095418b09dd6533b1f19ddb7deeea443e61c81ddf6ff8cd85de84ec3"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 77,
+          "sha256": "78900412fdf8cb531508a22e7e6941a274e6dcd0fe5768aceaa8f3aa55f28a2e"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 77,
+          "sha256": "61d66f4e54a2d4c356e7fde9e03a1ce0888fd443006fb94d9501077aa3dc0ba6"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 74,
+          "sha256": "ae3c8a78a1c0590e27bcc4c7d32782689eb85aafe95a2674084c11f98d18fc61"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 74,
+          "sha256": "98b1d9ac6bb1b6e29bb3b9cb09bdf860c966a0c1d82e207394ddedad2dec2a1f"
+        }
+      ],
+      "fileCount": 8
+    },
+    {
+      "repository": "https://github.com/morluto/rea",
+      "ref": {
+        "branch": "main",
+        "commit": "07888ec096f69753a1535703fb7b3c3070e786b7"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 64579,
+          "sha256": "05ffedfb1cb34f9df40eec59bd78d4cdbeca3695e4be1f159fe714c112965e1c"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 66,
+          "sha256": "6528fd1af88208f4da7fb317bc9d7f1a33bed0d318dc624e3fec095c9e59e224"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 62,
+          "sha256": "134765bca1da05c5a8cf3063359aa39598669e0d152e1a3741624749eeda9094"
+        },
+        {
+          "path": "package.json",
+          "bytes": 10450,
+          "sha256": "ab7e6a7609d950bb60b96c48852a4a4c4fdca36cc550cbe198a303979eb5c96d"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 65,
+          "sha256": "86ef60b8a5c5c2437136b0fa390ca5b692228c8dac4f8366a48f0f9339faa2a3"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 65,
+          "sha256": "79aac0b3c81d587bd2def86b667e2a18341ffc28f6fc2ae7e66ce1a347867fc3"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 62,
+          "sha256": "4530a4da5f2f9d3daea29abc3a61cc24a994aec16df0c39ad7e8fc038bc8ca59"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 62,
+          "sha256": "7ed57537801d0f022a08e81612c340afd48b0ece51bd3d2fa713a282ab7b990d"
+        }
+      ],
+      "fileCount": 8
+    },
+    {
+      "repository": "https://github.com/oil-oil/dsh-vision",
+      "ref": {
+        "branch": "main",
+        "commit": "9446a41dc96bd9fc96a7cc3b3a11365e125c9bd7"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 5658,
+          "sha256": "d35a19d2a08a65bccc93819815d0a4182fded4b55d3b9f641d8d3bb22f5f9802"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 101,
+          "sha256": "c7fad901ff895b1527aa2ce361e5fba16876fdd866cb75e227c462bb83a2f78e"
+        },
+        {
+          "path": "lib/client.js",
+          "bytes": 31240,
+          "sha256": "22b6ea75c985a819e1fae13e330c93db564868c2c3d60a4b4c2fcea3fbf141e0"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 29841,
+          "sha256": "acd7c5b1bd4cf9a8a41930fd97440be3cc88d68c3147c792270a309b473b4409"
+        },
+        {
+          "path": "package.json",
+          "bytes": 3842,
+          "sha256": "2914eea7a5f364ae0ae713f49c2a00871b35adad32a7110c19d84e492b345514"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 72,
+          "sha256": "5051a0ed4903a11394cc48cf40926d1d31c87a865ca186502dae2a4ccd167496"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 72,
+          "sha256": "48e9d06b3f7a75cec29b5f82243c8574e637bfcfdceb18158c684135bd044d2d"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 69,
+          "sha256": "6fb796362766847f77c054cf70502b3314d81176e46271f21820dbd95d2e4df3"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 8939,
+          "sha256": "3b6a89575976b8623f52192fd6d1667a25a6b5a9760b467fe1412c069b401a21"
+        }
+      ],
+      "fileCount": 9
+    },
+    {
+      "repository": "https://github.com/omdsh-dev/DSH-better-sidebar",
+      "ref": {
+        "branch": "main",
+        "commit": "4e52923970251b7034560a6b8ecbf8156f218702"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 19126,
+          "sha256": "6e324d93723860a3d9ad24c985a7b90969d10094acfc2b7d749bae264f8553aa"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 881,
+          "sha256": "69af4cb83fd0a5972ca9f75b1f949eea0cdef85f6c1f9c436914ca9486d24d9e"
+        },
+        {
+          "path": "lib/client.js",
+          "bytes": 80,
+          "sha256": "0d48a2e65c1f2fd0078a5e482df0f5d3037d48bd6767bb764f9e77b180a7049f"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 79,
+          "sha256": "d5e07053c3062466d511964e014f535e99bb0d9c63993e2dceebd7dd038badc4"
+        },
+        {
+          "path": "package.json",
+          "bytes": 5512,
+          "sha256": "4f315e3b237f58d3073fbc05f430fc169bdf10ff56b0ccdb43ab559b65a1d1dc"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 82,
+          "sha256": "06e8ee47577d84d23be15b4f74632773e2665db4e99eaf66bcf82425d123d1d6"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 79,
+          "sha256": "8909bb06f32604af8a1ad11ce1bcace253e248d419a58a5fd39ef402d57dac5f"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 43181,
+          "sha256": "b969cd89db4b88b1942781a809225db9a783b611d042a158d32f7829b8881217"
+        }
+      ],
+      "fileCount": 8
+    },
+    {
+      "repository": "https://github.com/omdsh-dev/dsh-at-file",
+      "ref": {
+        "branch": "main",
+        "commit": "c57849b27e378cf6b41d082b17c8a8750cee370f"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 6482,
+          "sha256": "7e8187e1d5e84fc9b4481bed2acce29f47e2a30074c34bb8139c288085dc46b0"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 56,
+          "sha256": "2ba66827fb5825230bbe9aad2e62150a4b6f78446330ffafdada53d4632fe484"
+        },
+        {
+          "path": "lib/client.js",
+          "bytes": 610157,
+          "sha256": "d5f1e5160e38a3daf46879512f6816ad76f4d73dcbcb48ed1f0f693f0b997b22"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 596419,
+          "sha256": "57f794dfb67e6250a9fbcf04c6cbce38efb8e55fe2ea3f65760086442058c8d7"
+        },
+        {
+          "path": "lib/invariant.js",
+          "bytes": 306,
+          "sha256": "7da1c3203869f7985fbeae42664e38e4339e04600bdfa1c49d0a48f07393d8b9"
+        },
+        {
+          "path": "package.json",
+          "bytes": 4781,
+          "sha256": "8ee7f8353fbb4f99510cb484186a4260a4758e3273e78d8521bdd6479d4ca73f"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 75,
+          "sha256": "037e6548362e64ad68a49381b3c1c6d877d4e692a932cfc7dc82dd02067436be"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 75,
+          "sha256": "8bcf5f13958a77c5e3fc33c2092b9354417ebab3247e88f9815613a72006f8d6"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 72,
+          "sha256": "15f34fa09b41a140e3c9af8ac605988dd395112ac38f954b13049fd6973b6608"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 4821,
+          "sha256": "14142ede548d17dbb8ade9f8558e7fa487d4f32549a36bb347a7aa58f7c2d5dc"
+        }
+      ],
+      "fileCount": 10
+    },
+    {
+      "repository": "https://github.com/omdsh-dev/dsh-custom-tool",
+      "ref": {
+        "branch": "main",
+        "commit": "7cb95649dca9b380c9a30af96bdbef87a76a2259"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 8482,
+          "sha256": "e5d3068a782a2dbd1983cdcb8fb1a10676a9c583d457c2043dd91c4a24b02058"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 265,
+          "sha256": "11d198289c976e3a86dc44fe642494610d0aaf755769e475c73d5758835c26df"
+        },
+        {
+          "path": "lib/client.js",
+          "bytes": 10872044,
+          "sha256": "c79d55ce2d164df93a8d9062ab543b837dd9fcd12e82faa61fd7fd78eba0a409"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 67158,
+          "sha256": "3acce3eedcc53dbc87a3e46f1a4b68feaa2b4bd59e0ecceaa85fd165de0f75a6"
+        },
+        {
+          "path": "lib/invariant.js",
+          "bytes": 279,
+          "sha256": "40f2ed59344a01fb70be985248a2d6eb8e1aac0b0594cbf2ce6748f51bfafba2"
+        },
+        {
+          "path": "package.json",
+          "bytes": 3840,
+          "sha256": "8c1a7a33a8b03813df6272d7668eae88709f57abbf74c94401600b040e5c8b60"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 79,
+          "sha256": "1293ae0d71a03c98b3226446d8fd6ab1cf1b1426f630b121c5a998d105cb99c6"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 79,
+          "sha256": "c1a3fc70f9ebb14449c096a9890d2efd3a7ee90220f464f211ecfea2f346bb94"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 76,
+          "sha256": "4c850c153eed1e02ad9af2d2cb1a86edf567a5b7feb7813573779bfe65fa82d4"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 2214,
+          "sha256": "23aef14b193cc03d82122f9901c30146dda4d188cb66127d8d7342fdc851aca3"
+        }
+      ],
+      "fileCount": 10
+    },
+    {
+      "repository": "https://github.com/omdsh-dev/dsh-lark",
+      "ref": {
+        "branch": "main",
+        "commit": "632807d9abafbb866a5e208a0298eff21c7856d1"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 9589,
+          "sha256": "6d2d5e99539fb3f9ae661ec9f0d61a1edd4fcdd2a0ce213ec075ce9b8f331311"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 3366,
+          "sha256": "be45050e87f3a03f7fa64ee0ca2bcf028b69a4edfba38ee01ed494660d3a4cf9"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 69,
+          "sha256": "3f8cb9bb6db444b9b45383ab0da4e1e7d0525d78567633a8e0024a245f61d399"
+        },
+        {
+          "path": "lib/invariant.js",
+          "bytes": 73,
+          "sha256": "6bb89598b321dabd535f0d22e32c07af9aa24472bfb0dc3e12aa8c75904fcf4d"
+        },
+        {
+          "path": "package.json",
+          "bytes": 2210,
+          "sha256": "2577d21254ee66d6f648671b2349ce2cf0299e288d14e457ebbb7e70806265de"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 72,
+          "sha256": "8c7992e8f58521afc72ef5d1ca7c1246570a7210242d337005afc5ce17e97b2e"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 72,
+          "sha256": "5a2680487925dff915399700209716222d6ad51af7158391e6e2cf26e741e9a1"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 69,
+          "sha256": "b11f74a01de31c181f42531e76c4fe3c008c03ba21bc3afe684ecced13a21552"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 726,
+          "sha256": "12148eaf2b1336c962809428a0a7165d03d1b3a56eadf9909cc9f3f46343b34e"
+        }
+      ],
+      "fileCount": 9
+    },
+    {
+      "repository": "https://github.com/omdsh-dev/dsh-mnemon",
+      "ref": {
+        "branch": "main",
+        "commit": "8cefff7c0521142f5fc2f30aca72c9627ff59265"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 13912,
+          "sha256": "5d148091f914b52bcb2801999e092d6d063a1a9b14ebc3952413de5a929e6aef"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 790,
+          "sha256": "51d6b79f3a2e52a99faf7078d57a46956660035c528a68f26f3be7a5287daecd"
+        },
+        {
+          "path": "lib/client.js",
+          "bytes": 72,
+          "sha256": "dfe9ed577a82c80d8952592074280777642baf0747d9386960d36e31b643b966"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 71,
+          "sha256": "1b9bb2bfc0c1325864e58b9a005b0aeeb90d60ce8b1f5d25e34b2bf1de2cfffd"
+        },
+        {
+          "path": "package.json",
+          "bytes": 4068,
+          "sha256": "94b3d41a5aca5b3b416054c8317c3b30a8384b5fbf79edb850371b44f254ccf8"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 74,
+          "sha256": "f3b9df18b538f1882a606aa80fa25b27ead7329d89974ba6ddeacdc46c3eebdd"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 74,
+          "sha256": "2a531919411fe599caefbd1c2316cff73f996c2d026cd24232cffa3ee56f32be"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 71,
+          "sha256": "c1824e82e79322e8eedd8d813f5be8698bc21c2b1e3ae86a50ef6894b865548b"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 4700,
+          "sha256": "834817b9cd99df0f63ed0186de79f656d96111d4fb3e3aee3a640baf049f9488"
+        }
+      ],
+      "fileCount": 9
+    },
+    {
+      "repository": "https://github.com/omdsh-dev/dsh-toolkit",
+      "ref": {
+        "branch": "main",
+        "commit": "1fda0fb9f6762c01affac50ca15c8eabfd6cd8f7"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 7185,
+          "sha256": "9dccb50024538e999030fbb7ad344ad30aeb630aa12aeb2a67edb513ecdee319"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 146,
+          "sha256": "14481dce645def20703898bc93bf1c13d64500ff6ecb10b9b5be49cde2a724dc"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 2883,
+          "sha256": "8f1ea603ac00dfb1cbba715c5b7a4444d9b87c1aa7317a735f7de6e93f684ca5"
+        },
+        {
+          "path": "package.json",
+          "bytes": 1504,
+          "sha256": "aa9a5bf943e47cb5cbd7339bd496c7dccea84f213e0f8616ec7f31db8674f0ae"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 75,
+          "sha256": "ec55bb7f8b04f8babeb95699fd2af829d7c3c9060c2c52dd450c0c44c0a7308f"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 75,
+          "sha256": "dc0979aa25836e61dcb414ef46568be42c75720dba4253015659ccbb7810d43a"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 72,
+          "sha256": "9392cb63b14ccab5b32a882471b3c41e625ba754fe9e0fab3c0a5212614246ee"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 2555,
+          "sha256": "d12cfbda8486a1ddf188437288da0b5abec8ed264ccf19bf90767fce11e12300"
+        }
+      ],
+      "fileCount": 8
+    },
+    {
+      "repository": "https://github.com/tencent-connect/dsh-qqbot",
+      "ref": {
+        "branch": "main",
+        "commit": "5b5e9b8a374f7289bd398b266dd845137a081784"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 5411,
+          "sha256": "aa782672da7dfd003ce1c0bdaa25405e334e1a8d2b114dfbecca814dcc333a3b"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 988,
+          "sha256": "cc7124d04c8858e0a871ecf5d56fbe06ea30324e3b6d905daf926270d6a070f3"
+        },
+        {
+          "path": "dist/index.js",
+          "bytes": 77,
+          "sha256": "b127fd497d1f66f0c22bca21939866e4a6ed058408791e3da1c7867bfffbfef7"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 76,
+          "sha256": "c69bb165617c1da366cb4016067d33ca9b2bd6a90345809cf0d9f4015fc26d1d"
+        },
+        {
+          "path": "package.json",
+          "bytes": 1902,
+          "sha256": "8f68de0ec5ab7591995b39a432a0ac8321d63a59d000efe0bad86c2a9cd5b776"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 79,
+          "sha256": "fb738fdf415d9ffb82910ff58c236cfb9806110a3611a95f5909bdcab4bcd813"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 79,
+          "sha256": "8975972a85adc31864290f68921c65f698e709863b4184c49cec6034b9a7cc20"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 2604,
+          "sha256": "7a5c3a117d8200001d9cda2af3a9402d22959f3ba5a089ffd69505d2590ee931"
+        }
+      ],
+      "fileCount": 8
+    },
+    {
+      "repository": "https://github.com/titanwings/dsh-automation",
+      "ref": {
+        "branch": "main",
+        "commit": "f8f43b2873a3f9dd57d86d61eb401770b2bc9ca5"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 15579,
+          "sha256": "36054a4934a6d1e96c5850f03d4b91badd68294df16839dfbfa7488a649fa8eb"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 326,
+          "sha256": "290b6bb961b44fede56fcd0d5be13189d0c6102090fdce4b779f05eb39097044"
+        },
+        {
+          "path": "package.json",
+          "bytes": 2307,
+          "sha256": "a23418c648ca5fd9592eec485c39ff208d0232b4b6d9bbb50392e373d710b15f"
+        }
+      ],
+      "fileCount": 3
+    },
+    {
+      "repository": "https://github.com/vlln/plugin-registry",
+      "ref": {
+        "branch": "main",
+        "commit": "b0ae1ea03a6c04c548dd10bf58f0fe7a70a92b29"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 5344,
+          "sha256": "e740fca40c137e19ec5edab2a3fe1cb9397ba5bb590271c0bd2e6dfd98f08397"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 75,
+          "sha256": "3482be128a050f187a147f255c01291ee8ad7695a37f45fa4cbf5443a681f494"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 71,
+          "sha256": "fa29088c0125ca50c063fea3746f242595c2e619ece57a44e80422a5a53866e7"
+        },
+        {
+          "path": "package.json",
+          "bytes": 71,
+          "sha256": "9c683355f2abc968f30ab15ef823c5ab67b0945ab4f2a75132d7293ec3081315"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 74,
+          "sha256": "3dfeb541a95cd656f92e70308b17c7c23bfb613b79d3eda1824ecbba3d831aeb"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 74,
+          "sha256": "9389c4725fb15a4de4acf8833d45734034996c232ddd4cf36a7d32db38d5ebae"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 71,
+          "sha256": "809e797030d8aec12012ff1b6683b9038f78795d1f1c0ba83aaca8e06a3a98d9"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 71,
+          "sha256": "08069d8db5b91c6663c1500124d000c3984c00923c84e030472c85354871fe49"
+        }
+      ],
+      "fileCount": 8
+    },
+    {
+      "repository": "https://github.com/vlln/whale-girl",
+      "ref": {
+        "branch": "main",
+        "commit": "e22e1fd918746e610f7bfb1713cef1e57a56f37c"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 5862,
+          "sha256": "383d0dfd25c78d8c00c5d4c3f4fda244742169229f9ef607976d2338cd966531"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 215,
+          "sha256": "5ce970cff8350e64fd7c7d8c0dcd41f2448324cd1a78b0f1e6343b720ddb853a"
+        },
+        {
+          "path": "lib/client.js",
+          "bytes": 54624,
+          "sha256": "7bf800c41cbcb5683e64d5a6f096b76c338dffbb8e53b7d10aa7bbcee6c83361"
+        },
+        {
+          "path": "package.json",
+          "bytes": 1042,
+          "sha256": "1e28bde749013086f86df6e844395f047faf24b75422cae17b4476160b634733"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 66,
+          "sha256": "981940984a884150d49ce56edbea878184c79f82d7039fef9b356d588f423523"
+        }
+      ],
+      "fileCount": 5
+    },
+    {
+      "repository": "https://github.com/whitelonng/dshcode",
+      "ref": {
+        "branch": "master",
+        "commit": "0a75f8f7f69641324db2f2bb37a14b5a1c6c4436"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 66,
+          "sha256": "9cafb3db7bb30817d6ba462ec8eefcc218cd9aff88e059ecb97cd968d89c8aec"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 73,
+          "sha256": "96e3ee7e020ca6b33515aeb711c61373ccbea103001f2eb01b374df5e73f6f00"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 69,
+          "sha256": "6f6de4af23519e3350a6c823e290e5c2186d18064a9825437b01ae9ea2e42e54"
+        },
+        {
+          "path": "package.json",
+          "bytes": 69,
+          "sha256": "ce134281434b99ec5b167e2cba741ec8fc339a5eaebc3c4d3f390f4e12fe1dd8"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 72,
+          "sha256": "ca6a942889cef56d8a62d7887543fd93231d4abcb01a65389f74ec62727fb965"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 72,
+          "sha256": "923e81a47012875a96cf33e8af5bf3ada56b2dffc37e75f91461183481f28eed"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 69,
+          "sha256": "e677d729f856b62960b19d85473e758b01a8b29faef9bec725a2e047af9d8dce"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 69,
+          "sha256": "fe45c7b58f04e222b7db2dba5a71f77a222e133e95a5920e0836d35df7590901"
+        }
+      ],
+      "fileCount": 8
+    },
+    {
+      "repository": "https://github.com/xmanrui/dsh-im",
+      "ref": {
+        "branch": "main",
+        "commit": "e85dfa6a797ccb3bc2a636eb22f6abd67462bad4"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 14006,
+          "sha256": "c6bb3782651aa0908dc1d6c8fa67041abe48a1de75a85bcc433fc5637f515180"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 65,
+          "sha256": "1491d44ea8568e43be3b193d4050c59779ab545e6cdc1fbd304e527ec234c8f5"
+        },
+        {
+          "path": "lib/client.js",
+          "bytes": 415145,
+          "sha256": "a1eefabed090c28aecd4d81070a6165b4a040c6fa8935a9ef857070dc6ca07d6"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 7417978,
+          "sha256": "6e9da1c0416f4452649058edd5603ee175169341472ace35380985468cb1e8de"
+        },
+        {
+          "path": "package.json",
+          "bytes": 2050,
+          "sha256": "61596d3985cdfffce597676168e16af99b02d9673f2ce5fdb906cc52b47b650d"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 68,
+          "sha256": "a197871e492ee7eb9910d3ea7555bc80c6c954b42c6c9ab33793cdf7fa3a1bd6"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 68,
+          "sha256": "19efe3086a7371ece308e21bdda94559462fac111c36456e67e64444c5764f56"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 65,
+          "sha256": "93abeea5bd95c218467b3148509772ceaf1a7bf7b1df418270071249f2a2d0db"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 65,
+          "sha256": "9d99cd41825a9af8a041af3f949a5c2ca7068d85aae37b04a014a4bc0befc56d"
+        }
+      ],
+      "fileCount": 9
+    },
+    {
+      "repository": "https://github.com/ysr666/dsh-vision-router",
+      "ref": {
+        "branch": "main",
+        "commit": "9ce9d7553dfeb9f78163a3c174c5cadc679c1a69"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 47123,
+          "sha256": "728193d4c6cab52b4ee87e430a78429a6e59e2392e8fc9b7ce56040cf27095a2"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 1774,
+          "sha256": "2946a58bb276f78dd6df35cdbd0187a717e123c7d2e78c158344b619ca2f1f8c"
+        },
+        {
+          "path": "entry.js",
+          "bytes": 9752,
+          "sha256": "9d041acb0f229605a54670256a5c1cb7b9427ebcb8c3706a1a84eecc582d3129"
+        },
+        {
+          "path": "lib/client.js",
+          "bytes": 237537,
+          "sha256": "07419a6958e4253dbfc75a58bdf0d049eb5d07f5d67824fcaf5aac72baeb4b35"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 75,
+          "sha256": "d34002472ac07c91cd31c01ec46c0807cedc42278301647c0b832cab68e48f76"
+        },
+        {
+          "path": "package.json",
+          "bytes": 3473,
+          "sha256": "a6306e6172b34258d4adc02f424ca1770839292393286a4bcd991390aa1109bf"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 78,
+          "sha256": "812af8be64a6b6da1b53cf43383371982169df7480b204dbc6c23d337c9e5556"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 78,
+          "sha256": "84dc7ace227e438d0e09de19e6e46822cd695d69105e1f4f5b502dbf5aa0056f"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 75,
+          "sha256": "f7f3e26eddbb7a1b7902061e13ff954bdd884c0c3c1b26a93b1fce09c8410d99"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 75,
+          "sha256": "cd36729b27d8875bfb0a02a80eade24afe3894b76891926035801f17da3ce0b7"
+        }
+      ],
+      "fileCount": 10
+    },
+    {
+      "repository": "https://github.com/zhu1090093659/dsh-web-ui",
+      "ref": {
+        "branch": "main",
+        "commit": "0c668c82f13fe99f052210bc230f851f3f123217"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 21483,
+          "sha256": "8462b9e87639a441bce10f5e8022535931e2d07d3c9b5227b4d075d9aa5f64d4"
+        },
+        {
+          "path": "package.json",
+          "bytes": 1440,
+          "sha256": "17918a8ba94ce2adb3b0e75e9d2ccc1e059ee3e4c277db728ca446e869ea03b1"
+        }
+      ],
+      "fileCount": 2
+    },
+    {
+      "repository": "https://github.com/zhuiyueya/dsh-im-gateway",
+      "ref": {
+        "branch": "main",
+        "commit": "c907dd55876230f1cb69687844cbc2e5d3ff4b2f"
+      },
+      "files": [
+        {
+          "path": "README.md",
+          "bytes": 12514,
+          "sha256": "d4611fe02dd7b32ac47c294b8e7763c5298f074d597ead4ef172029ae7dc9f6c"
+        },
+        {
+          "path": "cordis.patch.yml",
+          "bytes": 296,
+          "sha256": "6831e45f8603fc6c13742a7c61e31404e20cef71a26c6bca40d7e15f1719d1e2"
+        },
+        {
+          "path": "lib/client.js",
+          "bytes": 19161,
+          "sha256": "a4adc68f2877fc072447c9120f8d2d9d4032d5d1e6f856b09740e251d79b7d9d"
+        },
+        {
+          "path": "lib/index.js",
+          "bytes": 10557,
+          "sha256": "403a7f8074a68e292692535910124a1e0f8bc20c5ea5eef0d2107a515b672469"
+        },
+        {
+          "path": "package.json",
+          "bytes": 2504,
+          "sha256": "09153e67a9949667c8537c067df275df2c42a33b32cbc1b945770ee672e8442e"
+        },
+        {
+          "path": "plugin/index.js",
+          "bytes": 78,
+          "sha256": "660655ac2082037f4ecf4cea05e0218030de3121d51ad5c0e12680f6d0b3b687"
+        },
+        {
+          "path": "plugin/index.ts",
+          "bytes": 78,
+          "sha256": "2a65a3b61a49c582bc8ccc8aed3e71485bc8a32155b09a88689f74934300c2c0"
+        },
+        {
+          "path": "src/index.js",
+          "bytes": 75,
+          "sha256": "99920e2cf54412cae0845def8a2785087d6f7951f76867cd6fdd37cc634c531c"
+        },
+        {
+          "path": "src/index.ts",
+          "bytes": 10400,
+          "sha256": "c0a20819ddfd4bb97fad48f321bdbb8785749a9be7f8dd4115ea5746a6dc9fbe"
+        }
+      ],
+      "fileCount": 9
+    }
+  ]
+}
