@@ -40,7 +40,7 @@ Usage:
 
 Options:
   --json          emit the canonical report as JSON
-  --format <fmt>  output format: json | text | sarif | html
+  --format <fmt>  output format: json | text | sarif | html | cyclonedx | spdx
   --out <file>    write the report to a file, print a summary to stdout
   --baseline <f>  diff against a previous report (by stable fingerprint)
   --fail-on <lvl> exit 1 when any finding ≥ level (critical|high|medium|low); CLI 优先于 config
@@ -154,8 +154,8 @@ export async function main(argv, io = { stdout: process.stdout, stderr: process.
       case '--strict-exit-codes': opts.strictExitCodes = true; break
       case '--format': {
         const fmt = args[++i]
-        if (!['json', 'text', 'sarif', 'html'].includes(fmt)) {
-          stderr.write(`dsh-sentinel: --format must be json|text|sarif|html (got ${fmt})\n`)
+        if (!['json', 'text', 'sarif', 'html', 'cyclonedx', 'spdx'].includes(fmt)) {
+          stderr.write(`dsh-sentinel: --format must be json|text|sarif|html|cyclonedx|spdx (got ${fmt})\n`)
           return 2
         }
         opts.format = fmt
@@ -334,7 +334,23 @@ export async function main(argv, io = { stdout: process.stdout, stderr: process.
     if (opts.redactPaths) redactReportPaths(output, positional[0] ?? process.cwd())
 
     // 输出格式:json / sarif / html / text
-    if (opts.format === 'html') {
+    if (opts.format === 'cyclonedx' || opts.format === 'spdx') {
+      const graph = output.analysisLayers?.dependencyGraph
+      if (!graph || graph.complete === false) {
+        stderr.write('dsh-sentinel: SBOM export requires a complete supported dependency graph\n')
+        return 2
+      }
+      const { toCycloneDx, toSpdx } = await import('../engine/supplychain/sbom.js')
+      const document = opts.format === 'cyclonedx' ? toCycloneDx(graph, { toolVersion: output.version }) : toSpdx(graph, { toolVersion: output.version })
+      const serialized = JSON.stringify(document, null, 2) + '\n'
+      if (opts.out) {
+        const { writeFileSync } = await import('node:fs')
+        writeFileSync(opts.out, serialized)
+        stdout.write(`${opts.format} SBOM written to ${opts.out}\n`)
+      } else {
+        stdout.write(serialized)
+      }
+    } else if (opts.format === 'html') {
       const { toHtml } = await import('../engine/output/html.js')
       const html = toHtml(output)
       if (opts.out) {
