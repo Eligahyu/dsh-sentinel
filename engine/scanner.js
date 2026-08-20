@@ -913,6 +913,12 @@ export function hasExportContract(absPath) {
     && has(/export\s+(?:const|let|function|class|default)\s+apply\b/)) {
     return true
   }
+  // ESM 导出列表形态:export { name, apply }(压缩 bundle 常用)
+  const listExports = [...content.matchAll(/export\s*\{([^}]*)\}/g)]
+  if (listExports.length > 0) {
+    const listNames = new Set(listExports.flatMap((m) => m[1].split(',').map((s) => s.trim().split(/\s+as\s+/).pop()).filter(Boolean)))
+    if (listNames.has('name') && listNames.has('apply')) return true
+  }
   // export default 对象:必须同时含 name 与 apply(键或方法简写)。
   const defStart = content.search(/export\s+default\s*\{/m)
   if (defStart >= 0) {

