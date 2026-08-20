@@ -9,6 +9,7 @@ on:
 permissions:
   id-token: write # Required for OIDC (trusted publishing)
   contents: read
+  attestations: write
 
 jobs:
   publish:
@@ -20,6 +21,6 @@ jobs:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
           package-manager-cache: false # never use caching in release builds
-      # 零第三方依赖:无 npm ci / build;直接跑测试。
-      - run: node --test test/scan.test.js test/plugin-load.test.js
-      - run: npm publish # OIDC 模式下自动完成身份交换与 provenance
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run verify:release
+      - run: npm publish --provenance --access public

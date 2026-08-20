@@ -16,6 +16,7 @@ import { scan } from '../index.js'
 import { buildReport } from '../report.js'
 import { rmSync } from 'node:fs'
 import { strictDnsEnabled } from '../supplychain/fetch.js'
+import { verifyPackageProvenance } from '../supplychain/provenance.js'
 
 export const AUDIT_VERDICTS = ['ALLOW', 'REVIEW', 'BLOCK-RECOMMENDED']
 
@@ -104,6 +105,15 @@ export async function auditPackageBeforeInstall(spec, opts = {}) {
   const { dir, cleanup } = extraction
   try {
     const report = await scan(dir, { mode: 'package', ...opts })
+    const provenance = opts.provenance
+      ? verifyPackageProvenance(meta, {
+        expectedRepository: opts.repository,
+        expectedCommit: opts.commit,
+        expectedWorkflow: opts.workflow,
+        expectedDigest: dl.sha256,
+      })
+      : { status: 'not-requested', verified: false, reasons: [] }
+    report.analysisLayers.provenance = provenance
     const audit = {
       package: meta.name,
       version: meta.version,
@@ -114,7 +124,7 @@ export async function auditPackageBeforeInstall(spec, opts = {}) {
       dependencyCount: Object.keys(meta.dependencies ?? {}).length,
       installScripts: Object.keys(meta.scripts ?? {}).filter((s) =>
         ['preinstall', 'install', 'postinstall', 'prepare', 'prepublish'].includes(s)),
-      ...(opts.provenance ? { provenance: meta.attestations } : {}),
+      ...(opts.provenance ? { provenance } : {}),
     }
     report.supplyChain = {
       package: meta.name,
@@ -123,7 +133,7 @@ export async function auditPackageBeforeInstall(spec, opts = {}) {
       integrity: meta.dist.integrity,
       dependencyCount: audit.dependencyCount,
       installScripts: audit.installScripts,
-      ...(opts.provenance ? { provenance: meta.attestations } : {}),
+      provenance,
     }
 
     // integrity 不匹配 → SEN-SUPPLY-004 + 至少 REVIEW(不能 ALLOW)。
