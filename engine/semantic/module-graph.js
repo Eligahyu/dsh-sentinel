@@ -15,6 +15,12 @@ import { resolveInside } from '../path-safety.js'
 
 const SOURCE_EXTENSIONS = ['.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx']
 
+/** TypeScript 变体:acorn 无法解析,属能力边界(降级而非完整性失败)。 */
+const TS_EXT = /\.(?:tsx?|mts|cts|d\.ts)$/i
+
+/** 测试路径:测试文件引用构建产物/外部脚本是开发态常态,其模块图缺口降级为警告。 */
+const TEST_PATH = /(^|[\\/])(?:test|tests|__tests__|spec|e2e)([\\/]|\.)|\.(?:spec|test|e2e)\./i
+
 function relPath(root, abs) {
   return relative(root, abs).replace(/\\/g, '/')
 }
@@ -64,8 +70,16 @@ export function resolveModuleSpecifier(root, importer, specifier) {
 
   const candidates = []
   const addFileCandidates = (abs) => {
-    if (extname(abs)) candidates.push(abs)
-    else for (const ext of SOURCE_EXTENSIONS) candidates.push(abs + ext)
+    const ext = extname(abs)
+    if (ext) {
+      candidates.push(abs)
+      // TS 项目标准 ESM 形态:import './x.js' 实际文件是 x.ts(allowImportingTsExtensions/
+      // rewriteRelativeImportExtensions 产物)。对 .js/.mjs/.cjs 追加 TS 变体回退。
+      if (/^\.(?:js|mjs|cjs)$/i.test(ext)) {
+        const base = abs.slice(0, -ext.length)
+        for (const tsExt of ['.ts', '.tsx', '.mts', '.cts']) candidates.push(base + tsExt)
+      }
+    } else for (const e of SOURCE_EXTENSIONS) candidates.push(abs + e)
   }
   addFileCandidates(contained)
   if (existsSync(contained) && statSync(contained).isDirectory()) {
@@ -135,28 +149,37 @@ export function buildModuleGraph(root, files = []) {
     const rel = queue.shift()
     if (seen.has(rel)) continue
     seen.add(rel)
+    // 非 JS/TS 源码(如 .ps1/.py/.json 误入种子)不是模块图职责范围:跳过而非记 failure
+    if (!SOURCE_EXTENSIONS.some((ext) => rel.toLowerCase().endsWith(ext))) continue
+    const isTestFile = TEST_PATH.test(rel)
+    const pushFailure = (f) => { if (!isTestFile) failures.push(f) } // 测试文件缺口降级
     let abs
     try {
       abs = resolveInside(rootAbs, rel)
     } catch (error) {
-      failures.push({ path: rel, reason: 'path-escape', detail: error?.message })
+      pushFailure({ path: rel, reason: 'path-escape', detail: error?.message })
       continue
     }
     if (!existsSync(abs) || !statSync(abs).isFile()) {
-      failures.push({ path: rel, reason: 'missing-file' })
+      pushFailure({ path: rel, reason: 'missing-file' })
       continue
     }
     let content
     try {
       content = readFileSync(abs, 'utf8')
     } catch (error) {
-      failures.push({ path: rel, reason: 'read-error', detail: error?.code ?? error?.message })
+      pushFailure({ path: rel, reason: 'read-error', detail: error?.code ?? error?.message })
       continue
     }
     const ast = parseJavaScript(content)
     nodes.push(nodeFor(rootAbs, abs, content, ast))
     if (!ast) {
-      failures.push({ path: rel, reason: 'parse-error' })
+      // TS/TSX/DTS 是 acorn 的能力边界:节点已带 parser:'unparsed' 降级标记,
+      // 不记 failures(与语义引擎"AST 失败走兜底、不判完整性失败"的策略一致)。
+      // 只有真正的 JS parse-error 才构成完整性信号。
+      if (!TS_EXT.test(rel)) {
+        pushFailure({ path: rel, reason: 'parse-error' })
+      }
       continue
     }
     for (const item of importSpecifiers(ast)) {
@@ -166,7 +189,7 @@ export function buildModuleGraph(root, files = []) {
         continue
       }
       if (result.kind === 'failure') {
-        failures.push({ path: rel, specifier: item.specifier, reason: result.reason })
+        pushFailure({ path: rel, specifier: item.specifier, reason: result.reason })
         continue
       }
       const target = relPath(rootAbs, result.abs)

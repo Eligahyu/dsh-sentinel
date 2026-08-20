@@ -228,7 +228,9 @@ export async function scan(target, opts = {}) {
     allStats = mergeStats(allStats, crossCollector.stats())
     attackChains = crossFile.attackChains
     coverageSkips = [...(tree.coverageSkips ?? []), ...crossFile.failures]
-    scanComplete = scanComplete && crossFile.complete && (dependencyGraph?.complete ?? true)
+    // 模块图失败(JS 跨文件分析不完整)参与 scanComplete;
+    // 依赖图解析失败(pnpm/yarn lockfile 复杂格式)只是辅助层降级,不判扫描不完整。
+    scanComplete = scanComplete && crossFile.complete
     analysisLayers = {
       moduleGraph: { ...tree.moduleGraph, crossFile },
       ...(dependencyGraph ? { dependencyGraph } : {}),

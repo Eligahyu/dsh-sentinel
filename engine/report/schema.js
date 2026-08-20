@@ -28,11 +28,20 @@ export function normalizeAnalysisLayers(input = {}) {
   return layers
 }
 
+/**
+ * 判定"扫描不完整"的层:只有核心分析层(模块图/跨文件污点)失败才算;
+ * 辅助层(依赖图/SBOM/provenance/能力图)解析失败是降级警告(如实记录在报告,
+ * 但不判 scanComplete=false——pnpm/yarn lockfile 复杂格式解析失败很常见,
+ * 不构成"文件没扫完")。
+ */
+const CORE_INCOMPLETE_LAYERS = new Set(['moduleGraph'])
+
 /** Reasons that make a report incomplete, suitable for CI and human review. */
 export function incompleteLayerReasons(layers) {
   const reasons = []
   const label = (name) => name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)
   for (const [name, layer] of Object.entries(layers ?? {})) {
+    if (!CORE_INCOMPLETE_LAYERS.has(name)) continue
     if (layer?.complete === false) reasons.push(label(name))
     if (layer?.crossFile?.complete === false) reasons.push(`${label(name)}-cross-file`)
     if (Array.isArray(layer?.failures) && layer.failures.length > 0) {
