@@ -22,6 +22,7 @@ import { buildReport, verdictFor } from './report.js'
 import { RULES, CODE_EXT } from './rules.js'
 import { semanticScan } from './semantic/index.js'
 import { resolveInside } from './path-safety.js'
+import { buildModuleGraph } from './semantic/module-graph.js'
 
 export { VERSION } from './version.js'
 export { RULES } from './rules.js'
@@ -126,6 +127,7 @@ export async function scan(target, opts = {}) {
   let allStats = emptyAllStats()
   let ignored = []
   let hardSkipped = []
+  let analysisLayers = { moduleGraph: { nodes: [], edges: [], unresolved: [], failures: [], complete: true } }
 
   if (existsSync(abs) && statSync(abs).isFile()) {
     const size = statSync(abs).size
@@ -174,11 +176,15 @@ export async function scan(target, opts = {}) {
       }
       findings = collector.findings()
       allStats = collector.stats()
+      const moduleGraph = CODE_EXT.test(target)
+        ? buildModuleGraph(dirname(abs), [basename(abs)])
+        : { nodes: [], edges: [], unresolved: [], failures: [], complete: true }
       filesAnalyzed = 1
       filesDiscovered = 1
       largestFiles = [{ file: target, bytes: content.length }]
       const ext = target.includes('.') ? target.slice(target.lastIndexOf('.') + 1) : 'text'
       languages = { [ext]: 1 }
+      analysisLayers = { moduleGraph }
     }
   } else {
     // Manifest 检查先行:得到 runtime entries,用于 test 文件降权的 reachability 判断。
@@ -203,6 +209,7 @@ export async function scan(target, opts = {}) {
     largestFiles = tree.largestFiles
     ignored = tree.ignored
     hardSkipped = tree.hardSkipped
+    analysisLayers = { moduleGraph: tree.moduleGraph }
     // Manifest findings 并入统计与缓冲(路径 remap 到相对 target)。
     const bundleCollector = new FindingCollector({ maxFindings: limits.maxFindings, testReachableFiles })
     const remapped = bundle.findings.map((f) => ({ ...f, file: relative(abs, join(bundleRoot, f.file)) }))
@@ -236,6 +243,7 @@ export async function scan(target, opts = {}) {
       pluginsScanned: [],
       pluginsSkipped: [],
       scanMs: Date.now() - started,
+      analysisLayers,
     },
     limits.maxFindings,
   )
