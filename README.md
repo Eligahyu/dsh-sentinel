@@ -2,6 +2,8 @@
 
 # 🛡️ dsh-sentinel
 
+[![Awesome DSH Plugin](https://awesome-dsh-plugin.com/badge.svg)](https://awesome-dsh-plugin.com)
+
 **给 DeepSeek Harness 插件拍 X 光 · Plugin security & health scanner for DSH**
 
 一个只读的 DSH 插件供应链 + Agent Tool 静态安全审计器:静态启发式扫描代码执行、凭据窃取、数据外传、混淆、安装脚本、原生二进制、供应链风险与 bundle 清单合规,输出 **0–100 风险分 + 裁决**,并给出每一条命中的修复建议。
@@ -9,7 +11,7 @@
 既可以装进 DeepSeek Harness 当 **Agent 工具**(`sentinel_scan` / `sentinel_scan_profile` / `sentinel_audit_package`),也可以作为 **独立 CLI**(`npx dsh-sentinel`)在 CI 里使用,并输出 **SARIF 2.1.0** 对接 GitHub Code Scanning。
 
 ```
-Node ≥ 18.17 · 只读静态分析 · 绝不执行被扫描代码 · 安装前隔离审计 · MIT
+Node ^22.18 || ≥ 24.11 · 只读静态分析 · 绝不执行被扫描代码 · 安装前隔离审计 · MIT
 ```
 
 </div>
