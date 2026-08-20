@@ -25,9 +25,9 @@ cd /tmp/awesome-dsh-plugin
 git checkout -b showcase-dsh-sentinel
 
 # 2. 在 SHOWCASE.md 的「作者自荐」列表末尾追加一行(中文区):
-#    [dsh-sentinel](https://github.com/Eligahyu/dsh-sentinel-scanner) — DSH 插件安全体检与健康检查:静态扫描代码执行/凭据/外传/混淆/安装脚本/bundle 清单,输出 0-100 风险分与裁决,双形态(DSH 工具 + 独立 CLI),零依赖只读。
+#    [dsh-sentinel](https://github.com/Eligahyu/dsh-sentinel-scanner) — DSH 插件安全体检与健康检查:静态扫描代码执行/凭据/外传/混淆/安装脚本/bundle 清单,输出 0-100 风险分与裁决,双形态(DSH 工具 + 独立 CLI),只读分析。
 #    在「Author showcase」列表末尾追加一行(英文区):
-#    [dsh-sentinel](https://github.com/Eligahyu/dsh-sentinel-scanner) — Security & health scanner for DSH plugins: heuristic static audit (code execution, credentials, exfiltration, obfuscation, install scripts, bundle manifest) with a 0-100 risk score. DSH tool plugin + zero-dependency CLI.
+#    [dsh-sentinel](https://github.com/Eligahyu/dsh-sentinel-scanner) — Security & health scanner for DSH plugins: heuristic static audit (code execution, credentials, exfiltration, obfuscation, install scripts, bundle manifest) with a 0-100 risk score. DSH tool plugin + standalone CLI.
 
 # 3. 同步两个 README 首页的自荐预览区为列表末尾最近 10 条
 #    (README.md 与 README_EN.md 的 showcase 预览块)
@@ -54,7 +54,7 @@ gh pr create --title "showcase: 推荐 dsh-sentinel 插件安全体检工具" --
 "通过体检"标签的作者。
 
 Self-recommendation: deepseek-harness-sentinel fills the missing supply-chain
-audit lane for the DSH ecosystem — a zero-dependency, read-only static scanner
+audit lane for the DSH ecosystem — a read-only static scanner
 (30+ heuristic rules, 9 categories) that scores plugin repos 0-100 with a
 safe/review/risky/dangerous verdict. Ships as a DSH tool plugin and a standalone
 CLI. For anyone who wants to X-ray a third-party plugin before installing it.

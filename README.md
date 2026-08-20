@@ -52,7 +52,7 @@ DeepSeek Harness 插件生态在爆发:截至 2026-08,仅 [awesome-dsh-plugin](h
 | 🧬 原生二进制 | .wasm/.exe/.dll/.so/.node 等 metadata 审计:magic / size / sha256 / entropy / printable strings(SEN-BIN-001/002/003、SEN-WASM-001) |
 | 🔒 只读安全 | 不执行被扫描代码、不跟随符号链接、manifest 路径防逃逸、大文件走 lite 分析不跳过、超过 20MB 记录 metadata 并标记不完整 |
 | 🕶️ 隐私保护 | 报告中的 **secret 一律脱敏**(永远开启,只保留指纹);`--redact-paths` 匿名化绝对路径;所有 ignore/skip 全部进入报告,绝不静默 |
-| 🧪 自带验证 | 94 项自动化测试(positive/negative/evasion)+ 三级 benchmark(rule / finding±2 行 / flow source→sink) |
+| 🧪 自带验证 | 151 项自动化测试(positive/negative/evasion/hardening)+ 三级 benchmark(rule / finding±2 行 / flow source→sink) |
 | 🚀 CI 集成 | `--format sarif`(2.1.0,相对路径 + 稳定指纹)、`--fail-on`、`--fail-on-incomplete`(exit 3)、`--strict-exit-codes`、自包含 [GitHub Action](action.yml) |
 
 ## 快速开始
@@ -203,22 +203,25 @@ npm run benchmark
 ```
 
 rule-level(期望规则 ID 集合)+ finding-level(期望 `{id, line}`,±2 行容忍)
-+ flow-level(期望 `{id, source, sink}` 链),当前 16 项带标注语料:
++ flow-level(期望 `{id, source, sink}` 链),当前 32 项带标注语料
+(malicious / safe / evasions / edge 四组):
 
 ```text
-rule-level   precision 0.962 · recall 1.000 · F1 0.981
-finding-level precision 0.941 · recall 1.000 · F1 0.970
+rule-level   precision 0.953 · recall 1.000 · F1 0.976
+finding-level precision 0.917 · recall 1.000 · F1 0.957
 flow-level   precision 1.000 · recall 1.000 · F1 1.000
+hardening edge(16 项)precision 1.000 · recall 1.000 · F1 1.000
 ```
 
-目标门槛:precision ≥ 0.90、recall ≥ 0.85;Harness critical 规则 recall ≥ 0.95。
+目标门槛:rule/finding/flow recall ≥ 0.95、flow precision ≥ 0.95、critical safe-edge FP = 0。
 
 ## Roadmap
 
 - [x] v0.2:扫描完整性 / 三种模式 / 路径 containment / secret 脱敏
 - [x] v0.3:AST/taint、Harness 专属规则、SARIF/fingerprint/baseline、安装前审计、benchmark
 - [x] v0.3.1(第二轮):评分-展示解耦、bundle 不降级、binary 审计、safe tar、GitHub Action、DSH 前置审计接口
-- [x] v0.4.0(本轮):发布加固——完整度失败显式化、资源上限、IPv6/DNS SSRF、凭据专属豁免、bare sink 绑定、multiple taints、semantic evidence、fingerprint 闭环、Node ≥22.18 基线
+- [x] v0.4.0(发布加固):完整度失败显式化、资源上限、IPv6/DNS SSRF、凭据专属豁免、bare sink 绑定、multiple taints、semantic evidence、fingerprint 闭环、Node ≥22.18 基线
+- [x] v0.4.1/v0.4.2(发布工程):Action 依赖安装隔离(--prefix/--ignore-scripts)、engines 精确对齐、traversal/binary-sample 覆盖、tarball 资源所有权、edge corpus 32 项、verify:release
 - [ ] v0.5:lockfile 依赖图深化、跨文件 taint、reachability 图
 - [ ] v0.5:GitHub Action 独立仓库发布、DSH 官方 hook 对接(如官方提供)
 - [ ] v1.0:稳定语义引擎、公开基准、文档化限制
@@ -228,7 +231,7 @@ flow-level   precision 1.000 · recall 1.000 · F1 1.000
 ## 开发
 
 ```sh
-npm test            # 94 项测试(引擎 + CLI + 插件加载 + 供应链 + v2 正确性)
+npm test            # 151 项测试(引擎 + CLI + 插件加载 + 供应链 + v2 + hardening)
 npm run benchmark   # 三级 benchmark(rule/finding/flow)
 npm run docs:rules  # 从规则目录重新生成 docs/rules.md(权重动态取自 SEVERITY_WEIGHT)
 npm run demo        # 生成 docs/example-report.json
