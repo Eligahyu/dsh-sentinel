@@ -24,6 +24,7 @@ import { semanticScan } from './semantic/index.js'
 import { resolveInside } from './path-safety.js'
 import { buildModuleGraph } from './semantic/module-graph.js'
 import { analyzeCrossFileTaint } from './semantic/cross-file-taint.js'
+import { buildDependencyGraph } from './supplychain/dependency-graph.js'
 
 export { VERSION } from './version.js'
 export { RULES } from './rules.js'
@@ -131,6 +132,7 @@ export async function scan(target, opts = {}) {
   let analysisLayers = { moduleGraph: { nodes: [], edges: [], unresolved: [], failures: [], complete: true } }
   let attackChains = []
   let coverageSkips = []
+  let dependencyGraph = null
 
   if (existsSync(abs) && statSync(abs).isFile()) {
     const size = statSync(abs).size
@@ -213,6 +215,9 @@ export async function scan(target, opts = {}) {
     ignored = tree.ignored
     hardSkipped = tree.hardSkipped
     const crossFile = analyzeCrossFileTaint(abs, tree.moduleGraph)
+    const lockfileNames = ['package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml', 'yarn.lock', 'bun.lock', 'bun.lockb']
+    const hasLockfile = lockfileNames.some((name) => existsSync(join(abs, name)))
+    dependencyGraph = hasLockfile ? buildDependencyGraph(abs) : null
     const crossCollector = new FindingCollector({ maxFindings: limits.maxFindings, testReachableFiles })
     crossCollector.addSemantic(crossFile.findings, 'cross-file')
     crossCollector.finalizeFile('cross-file')
@@ -221,8 +226,11 @@ export async function scan(target, opts = {}) {
     allStats = mergeStats(allStats, crossCollector.stats())
     attackChains = crossFile.attackChains
     coverageSkips = [...(tree.coverageSkips ?? []), ...crossFile.failures]
-    scanComplete = scanComplete && crossFile.complete
-    analysisLayers = { moduleGraph: { ...tree.moduleGraph, crossFile } }
+    scanComplete = scanComplete && crossFile.complete && (dependencyGraph?.complete ?? true)
+    analysisLayers = {
+      moduleGraph: { ...tree.moduleGraph, crossFile },
+      ...(dependencyGraph ? { dependencyGraph } : {}),
+    }
     // Manifest findings 并入统计与缓冲(路径 remap 到相对 target)。
     const bundleCollector = new FindingCollector({ maxFindings: limits.maxFindings, testReachableFiles })
     const remapped = bundle.findings.map((f) => ({ ...f, file: relative(abs, join(bundleRoot, f.file)) }))
@@ -259,6 +267,14 @@ export async function scan(target, opts = {}) {
       analysisLayers,
       attackChains,
       coverageSkips,
+      supplyChain: dependencyGraph ? {
+        dependencyGraph: {
+          lockfile: dependencyGraph.lockfile,
+          nodes: dependencyGraph.nodes.length,
+          edges: dependencyGraph.edges.length,
+          complete: dependencyGraph.complete,
+        },
+      } : {},
     },
     limits.maxFindings,
   )
