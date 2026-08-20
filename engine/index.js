@@ -25,6 +25,7 @@ import { resolveInside } from './path-safety.js'
 import { buildModuleGraph } from './semantic/module-graph.js'
 import { analyzeCrossFileTaint } from './semantic/cross-file-taint.js'
 import { buildDependencyGraph } from './supplychain/dependency-graph.js'
+import { buildCapabilityGraph, evaluateCapabilityPolicy } from './semantic/capability-graph.js'
 
 export { VERSION } from './version.js'
 export { RULES } from './rules.js'
@@ -32,6 +33,7 @@ export { parsePatchRows, resolvePatchEntry } from './scanner.js'
 export { inspectBundle } from './manifest.js'
 export { buildReport, verdictFor } from './report.js'
 export { semanticScan } from './semantic/index.js'
+export { buildCapabilityGraph, evaluateCapabilityPolicy } from './semantic/capability-graph.js'
 export { auditPackageBeforeInstall, auditNpmSpec, auditVerdictFor } from './package/audit.js'
 export { loadConfig, mergeOverrides, DEFAULT_CONFIG } from './config.js'
 
@@ -241,6 +243,22 @@ export async function scan(target, opts = {}) {
     allStats = mergeStats(allStats, bundleCollector.stats())
     manifest = bundle.manifest
   }
+
+  // Capability graph is derived from retained evidence; an optional policy can
+  // add explicit undeclared-capability findings without executing the plugin.
+  const capabilityGraph = buildCapabilityGraph(findings)
+  if (opts.capabilityPolicy && typeof opts.capabilityPolicy === 'object') {
+    const policyFindings = evaluateCapabilityPolicy(capabilityGraph, opts.capabilityPolicy)
+    if (policyFindings.length > 0) {
+      const policyCollector = new FindingCollector({ maxFindings: limits.maxFindings })
+      policyCollector.addSemantic(policyFindings, 'capability-policy')
+      policyCollector.finalizeFile('capability-policy')
+      findings = [...findings, ...policyCollector.findings()]
+      findingsTotal += policyFindings.length
+      allStats = mergeStats(allStats, policyCollector.stats())
+    }
+  }
+  analysisLayers = { ...analysisLayers, capabilityGraph }
 
   return buildReport(
     {
